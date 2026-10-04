@@ -48,6 +48,7 @@ async function renderTimeseries() {
     return;
   }
   const isSigma = timeseriesSeries === "sigma";
+  const isAnomaly = timeseriesSeries === "anomaly"; // physical-unit departure from baseline
   // Native-direction sigma here: +sigma = above-normal value, -sigma = below,
   // so SCA/SWE/precip depletion reads as NEGATIVE -- the intuitive direction
   // for a single-variable time series. The stress-direction sign flip
@@ -55,29 +56,35 @@ async function renderTimeseries() {
   // Heatmap, Map), where unifying every product's stress direction aids
   // comparison, but it misleads here (Dylan, 2026-10-02: SCA depletion was
   // showing as +sigma). Raw values are unaffected either way.
-  const fullY = isSigma ? region.sigma.map((v) => (v === null || v === undefined ? null : v)) : region.value;
+  const fullY = isSigma
+    ? region.sigma.map((v) => (v === null || v === undefined ? null : v))
+    : isAnomaly ? region.anomaly : region.value;
   // Native standardized indices (SPI/SPEI/EDDI/PDSI/ForDRI/ESI) are already
   // a standardized departure -- their sigma series is identical to raw, not
   // a re-standardization (see common/canonical.py::_load_drought_index).
   const sigmaLabel = data.native_standardized
     ? `${data.response} (native standardized index)`
     : "Standardized anomaly (σ)";
+  const yTitle = isSigma ? sigmaLabel
+    : isAnomaly ? `${data.response} anomaly (${data.units})`
+    : `${data.response} (${data.units})`;
+  const isDeparture = isSigma || isAnomaly;
   const startYear = Math.max(DASHBOARD_MIN_YEAR, timeseriesStartYear || DASHBOARD_MIN_YEAR);
   const dates = region.dates.filter((d) => parseInt(d.slice(0, 4), 10) >= startYear);
   const y = fullY.filter((_, i) => parseInt(region.dates[i].slice(0, 4), 10) >= startYear);
   const traces = [{
     x: dates, y, type: "scatter", mode: "lines",
     line: { color: "#1b1b1b", width: 1.4 },
-    name: isSigma ? sigmaLabel : `${data.response} (${data.units})`,
+    name: yTitle,
     hovertemplate: "%{x|%Y-%m}: %{y:.2f}<extra></extra>",
   }];
   document.getElementById("timeseries-title").textContent = `${pickerState.product} · ${data.response} — ${regionLabelFor(pickerState.region)}`;
   const layout = {
     margin: { t: 20, r: 20, b: 45, l: 60 },
-    yaxis: { title: isSigma ? sigmaLabel : `${data.response} (${data.units})`, zeroline: isSigma, ...PLOTLY_AXIS_LINE },
+    yaxis: { title: yTitle, zeroline: isDeparture, ...PLOTLY_AXIS_LINE },
     xaxis: { title: "Year", showgrid: false, ...PLOTLY_AXIS_LINE, ...PLOTLY_YEARLY_MINOR_TICKS },
     font: { family: "Source Sans Pro, sans-serif", size: 13 },
-    shapes: isSigma ? [{ type: "line", x0: 0, x1: 1, xref: "paper", y0: 0, y1: 0, line: { color: "#888", width: 1 } }] : [],
+    shapes: isDeparture ? [{ type: "line", x0: 0, x1: 1, xref: "paper", y0: 0, y1: 0, line: { color: "#888", width: 1 } }] : [],
   };
   Plotly.newPlot(chart, traces, layout, { responsive: true, displaylogo: false });
 }

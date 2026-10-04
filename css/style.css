@@ -864,3 +864,7 @@ table.headline-table tr.group-row td {
 .site-footer p { margin: 0 0 0.9rem; }
 .site-footer a { color: #dce4f0; transition: color var(--transition); }
 .site-footer a:hover { color: #fff; }
+
+/* SiB4 page: each analysis panel is a spaced card. */
+.sib4-panel { margin: 1.5rem 0; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+.sib4-panel:first-of-type { border-top: none; }

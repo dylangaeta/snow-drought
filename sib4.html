@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="SiB4 modeled biosphere drought response for the Western US: per-plant-functional-type carbon, water-stress, and diurnal responses, plus comparison of other datasets against SiB4.">
+<title>SiB4 &mdash; 2025-2026 Western US Climate and Snow Drought Explorer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg stroke='%23162e51' stroke-width='2' stroke-linecap='round'%3E%3Cline x1='12' y1='2' x2='12' y2='22'/%3E%3Cline x1='4' y1='6' x2='20' y2='18'/%3E%3Cline x1='4' y1='18' x2='20' y2='6'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&family=Merriweather:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <h1 class="wordmark-h1"><a class="wordmark" href="home.html">Western US Climate and Snow Drought Explorer <span class="beta-tag">BETA</span>
+      <small>NOAA Global Monitoring Laboratory &middot; Cooperative Institute for Research in Environmental Sciences</small>
+      <small>Unofficial snow drought dashboard and data explorer. For educational purposes only</small>
+    </a></h1>
+    <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
+    <nav class="site-nav" id="site-nav">
+      <a href="home.html">Home</a>
+      <a href="map.html">Map</a>
+      <a href="explore.html">Time Series</a>
+      <a href="seasonal.html">Seasonal Cycle</a>
+      <a href="sib4.html" class="active">SiB4</a>
+      <a href="data.html">Summary Table</a>
+      <a href="heatmaps.html">Heatmap</a>
+      <a href="classification.html">Classification</a>
+      <a href="gallery.html">Figure Gallery</a>
+      <a href="about.html">About</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <section id="sib4">
+    <h2>SiB4 &mdash; Modeled Biosphere Drought Response</h2>
+    <p class="finding-note">Modeled Western US biosphere response resolved by
+      plant functional type (PFT) and time of day.</p>
+
+    <div class="selector-row">
+      <div class="region-toggle" id="region-toggle"></div>
+    </div>
+
+    <!-- 1. PFT land-cover composition -->
+    <div class="sib4-panel">
+      <h3 class="figure-title" id="sib4-composition-title"></h3>
+      <p class="finding-note">Land cover is fixed in time; bare ground carries no carbon flux.</p>
+      <div id="sib4-composition" style="height:200px;"></div>
+    </div>
+
+    <!-- 2. Soil vs air vs heat limitation -->
+    <div class="sib4-panel">
+      <h3 class="figure-title" id="sib4-limitation-title"></h3>
+      <p class="finding-note">Stress intensity = 1 &minus; factor; higher is more limiting.</p>
+      <div class="series-toggle" id="sib4-limitation-toggle">
+        <button data-series="raw" class="active">Stress intensity</button>
+        <button data-series="anomaly">Departure</button>
+      </div>
+      <div id="sib4-limitation" style="height:420px;"></div>
+    </div>
+
+    <!-- 3. Per-PFT time series of a chosen variable -->
+    <div class="sib4-panel">
+      <div class="selector-row">
+        <label class="select-field">Variable <select id="sib4-ts-variable" aria-label="Variable"></select></label>
+        <div class="series-toggle" id="sib4-ts-toggle">
+          <button data-series="raw" class="active">Raw units</button>
+          <button data-series="anomaly">Anomaly</button>
+        </div>
+        <label class="boundary-toggle"><input type="checkbox" id="sib4-ts-aggregate" checked> Region mean (AGG)</label>
+      </div>
+      <h3 class="figure-title" id="sib4-ts-title"></h3>
+      <p class="finding-note" id="sib4-ts-note"></p>
+      <div id="sib4-pft-timeseries" style="height:460px;"></div>
+    </div>
+
+    <!-- 4. Diurnal cycle -->
+    <div class="sib4-panel">
+      <div class="selector-row">
+        <label class="select-field">Diurnal variable <select id="sib4-diurnal-variable" aria-label="Diurnal variable"></select></label>
+        <label class="select-field">Month <select id="sib4-diurnal-month" aria-label="Month"></select></label>
+        <label class="select-field">PFT <select id="sib4-diurnal-pft" aria-label="PFT"></select></label>
+      </div>
+      <h3 class="figure-title" id="sib4-diurnal-title"></h3>
+      <p class="finding-note">Local solar time (hour 12 &asymp; local noon). Model diagnostic, not observation.</p>
+      <div id="sib4-diurnal" style="height:440px;"></div>
+    </div>
+
+    <!-- 5. Compare other datasets against SiB4 -->
+    <div class="sib4-panel">
+      <div class="selector-row">
+        <label class="select-field">SiB4 variable <select id="sib4-compare-variable" aria-label="SiB4 variable to compare against"></select></label>
+      </div>
+      <h3 class="figure-title" id="sib4-compare-title"></h3>
+      <p class="finding-note">Standardized anomaly (&sigma;); positive = stress direction. Check a dataset to add it.</p>
+      <div class="compare-chart-layout">
+        <div id="sib4-compare-chart" style="height:460px;"></div>
+        <div id="sib4-compare-legend" class="compare-legend"></div>
+      </div>
+    </div>
+
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <p>
+      Source: snowdrought-carbon (private research codebase, NOAA
+      Global Monitoring Laboratory &middot; Cooperative Institute for
+      Research in Environmental Sciences).
+    </p>
+    <p>
+      See <a href="about.html">About</a> for methodology, references, and
+      contact information.
+    </p>
+  </div>
+</footer>
+
+<script src="js/common.js"></script>
+<script src="js/sib4.js"></script>
+</body>
+</html>
