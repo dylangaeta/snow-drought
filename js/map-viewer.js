@@ -750,12 +750,21 @@ async function updateInteractiveMapLayer() {
     olMapState.layerCache[url] = layer;
   }
   if (olMapState.rasterLayer !== layer) {
-    // Detach (not dispose) the previously-active layer -- it stays in
-    // layerCache and gets reattached, not rebuilt, if the user comes back
-    // to it.
-    if (olMapState.rasterLayer) olMapState.map.removeLayer(olMapState.rasterLayer);
+    // Keep the previous layer visible until the new one has fully rendered,
+    // then drop it -- otherwise animating through months flashes the bare
+    // basemap in the gap while the new COG's tiles decode (Dylan, 2026-10).
+    // Detach, not dispose: the old layer stays in layerCache and is reattached
+    // (not rebuilt) if the user returns to it. Pushed on top of the old raster;
+    // the boundary layer stays above both via its own zIndex.
+    const previous = olMapState.rasterLayer;
     olMapState.rasterLayer = layer;
-    olMapState.map.getLayers().insertAt(1, olMapState.rasterLayer); // above basemap, below boundaries
+    olMapState.map.getLayers().push(layer);
+    if (previous) {
+      olMapState.map.once("rendercomplete", () => {
+        const layers = olMapState.map.getLayers();
+        if (layers.getArray().includes(previous)) layers.remove(previous);
+      });
+    }
   }
 }
 
@@ -777,7 +786,7 @@ function buildPeriodSlider(periods) {
   if (seasons.length) {
     html += `<div class="ol-period-group ol-period-seasons">` +
       seasons.map((p) => stopHtml(p, olPeriodLabel(p), "")).join("") +
-      `</div><div class="ol-period-sep" aria-hidden="true"></div>`;
+      `</div>`;
   }
   html += `<div class="ol-period-group ol-period-months">` +
     months.map((p) => stopHtml(p, MONTH_LETTERS[parseInt(p, 10) - 1], " ol-period-month")).join("") +
