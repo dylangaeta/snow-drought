@@ -27,7 +27,7 @@ function parseSharedMapViewFromUrl() {
 }
 
 let pendingSharedMapView = null;
-let lastMapSelection = null;
+let mapPicker = null;
 
 // First-ever visit (no shared-view URL hash, no remembered localStorage
 // selection) opens on this view rather than whatever happens to sort first
@@ -41,119 +41,95 @@ const DEFAULT_MAP_VIEW = {
 
 // A URL fragment-only change (e.g. a shared link pasted into the same tab,
 // or browser back/forward across two hash states) does not reload the page
-// or re-run init(), so it must be re-applied explicitly via the hashchange
-// event below.
+// or re-run init(), so re-apply it: stash the period/mode/year extras and
+// drive the shared picker to the hash's product/response (the picker's own
+// settle() then fires onMapSelectionChanged, which consumes the extras).
 function applySharedMapView() {
   const view = parseSharedMapViewFromUrl();
-  if (!view || !manifest.categories[view.category]) return false;
+  if (!view || !mapPicker) return;
   pendingSharedMapView = view;
-  selectMapCategory(view.category);
-  return true;
+  mapPicker.select(view.product, view.response);
+}
+
+// The map's year/period/mode live outside the shared picker (no other page has
+// them), so a shared-view hash carries them separately -- apply them here.
+function applyMapViewExtras(view) {
+  if (!view) return;
+  if (view.period) olMapState.period = view.period;
+  if (view.mode) {
+    olMapState.mode = view.mode;
+    document.querySelectorAll("#ol-mode-toggle button").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.mode === view.mode);
+    });
+  }
+  if (view.year) olMapState.year = parseInt(view.year, 10);
+}
+
+// Shared-picker onChange. The picker has already filled the metadata panel and
+// saved the shared last-selection; here we mirror its choice into
+// mapPickerState, apply any period/mode/year a shared-view hash carried (once),
+// and redraw. The picker's spatial-map filter guarantees every selectable
+// product/response actually has a COG, so there is no category cascade to drive.
+function onMapSelectionChanged(entry, selection) {
+  mapPickerState.category = selection.category;
+  mapPickerState.product = selection.product;
+  mapPickerState.response = selection.response;
+  applyMapViewExtras(pendingSharedMapView);
+  pendingSharedMapView = null;
+  renderInteractiveMap();
 }
 
 function initMapPicker() {
-  renderMapCategoryTabs();
-  if (!applySharedMapView()) {
-    lastMapSelection = loadLastSelection();
-    if (!lastMapSelection) pendingSharedMapView = DEFAULT_MAP_VIEW;
-    const preferredCategory = lastMapSelection?.category || pendingSharedMapView?.category;
-    const initialCategory = (preferredCategory && manifest.categories[preferredCategory])
-      ? preferredCategory
-      : manifest.category_order.find((cat) => Object.keys(manifest.categories[cat]).length > 0);
-    selectMapCategory(initialCategory);
-  }
-
-  document.getElementById("product-select").addEventListener("change", (event) => {
-    mapPickerState.product = event.target.value;
-    populateMapResponseSelect();
+  // The picker seeds product/response itself (shared-view hash -> remembered
+  // selection -> DEFAULT_MAP_VIEW). Only the period/mode/year extras need
+  // handling here: from the hash, or -- first visit, no hash, nothing
+  // remembered -- from DEFAULT_MAP_VIEW.
+  const urlView = parseSharedMapViewFromUrl();
+  if (urlView) pendingSharedMapView = urlView;
+  else if (!loadLastSelection()) pendingSharedMapView = DEFAULT_MAP_VIEW;
+  mapPicker = createProductPicker({
+    ids: {
+      pivot: "picker-pivot", product: "product-select", response: "response-select",
+      meta: "product-meta", search: "product-search", searchResults: "product-search-results",
+    },
+    filter: responseHasSpatialMap,
+    persist: true,
+    seedFromUrl: true,
+    defaultView: DEFAULT_MAP_VIEW,
+    onChange: onMapSelectionChanged,
   });
-  document.getElementById("response-select").addEventListener("change", (event) => {
-    mapPickerState.response = event.target.value;
-    onMapSelectionChanged();
-  });
-  wireProductSearch("product-search", "product-search-results", (category, product, response) => {
-    pendingSharedMapView = { category, product, response };
-    selectMapCategory(category);
-  });
+  mapPicker.init();
   window.addEventListener("hashchange", applySharedMapView);
 }
 
-function renderMapCategoryTabs() {
-  const nav = document.getElementById("category-tabs");
-  nav.innerHTML = "";
-  manifest.category_order.forEach((category) => {
-    const products = manifest.categories[category];
-    if (Object.keys(products).length === 0) return;
-    const button = document.createElement("button");
-    button.className = "category-tab";
-    button.textContent = categoryLabelWithIcon(category);
-    button.style.setProperty("--cat", manifest.category_colors[category]);
-    button.dataset.category = category;
-    button.addEventListener("click", () => selectMapCategory(category));
-    nav.appendChild(button);
-  });
+// A response gets a spatial map only if its manifest entry actually carries
+// map outputs and isn't flagged no_spatial_maps -- site/point products whose
+// gridded field would be interpolated from sparse stations (PhenoCam, SNOTEL,
+// NEON, AmeriFlux) have no COG at all and must not appear in the map pickers,
+// only on Time Series/Seasonal/etc. (Dylan, 2026-10).
+function responseHasSpatialMap(category, product, response) {
+  const entry = manifest.categories[category]?.[product]?.[response];
+  // The interactive map renders from the COG map_style (style.periods), not the
+  // static-figure manifest. entry.maps is only the static-gallery index and is
+  // EMPTY for multi-response products whose static maps share one figure dir
+  // (SMAP SM/AM/PM/VOD..., SMOS SM/VOD, UA-SWE) -- those still have COGs, so gate
+  // on has_cog too (set from the exported map_styles). Point networks have
+  // no_spatial_maps and no COG, so they stay excluded either way.
+  if (!entry || entry.no_spatial_maps) return false;
+  return entry.has_cog === true || (entry.maps && Object.keys(entry.maps).length > 0);
 }
 
-function selectMapCategory(category) {
-  mapPickerState.category = category;
-  document.querySelectorAll("#category-tabs .category-tab").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.category === category);
-  });
-  populateMapProductSelect();
+function categoryHasSpatialMap(category) {
+  return Object.entries(manifest.categories[category]).some(([product, responses]) =>
+    Object.keys(responses).some((r) => responseHasSpatialMap(category, product, r)));
 }
 
-function populateMapProductSelect() {
-  const select = document.getElementById("product-select");
-  select.innerHTML = "";
-  const products = Object.keys(manifest.categories[mapPickerState.category]);
-  products.forEach((product) => {
-    const option = document.createElement("option");
-    option.value = product;
-    option.textContent = product;
-    select.appendChild(option);
-  });
-  const preferredProduct = pendingSharedMapView?.product || lastMapSelection?.product;
-  mapPickerState.product = (preferredProduct && products.includes(preferredProduct))
-    ? preferredProduct : products[0];
-  select.value = mapPickerState.product;
-  populateMapResponseSelect();
-}
-
-function populateMapResponseSelect() {
-  const select = document.getElementById("response-select");
-  select.innerHTML = "";
-  const responses = Object.keys(manifest.categories[mapPickerState.category][mapPickerState.product]);
-  responses.forEach((response) => {
-    const option = document.createElement("option");
-    option.value = response;
-    option.textContent = response;
-    select.appendChild(option);
-  });
-  const preferredResponse = pendingSharedMapView?.response || lastMapSelection?.response;
-  mapPickerState.response = (preferredResponse && responses.includes(preferredResponse))
-    ? preferredResponse : responses[0];
-  select.value = mapPickerState.response;
-
-  if (pendingSharedMapView) {
-    if (pendingSharedMapView.period) olMapState.period = pendingSharedMapView.period;
-    if (pendingSharedMapView.mode) {
-      olMapState.mode = pendingSharedMapView.mode;
-      document.querySelectorAll("#ol-mode-toggle button").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.mode === pendingSharedMapView.mode);
-      });
-    }
-    if (pendingSharedMapView.year) olMapState.year = parseInt(pendingSharedMapView.year, 10);
-    pendingSharedMapView = null; // restore only on initial load, never again
-  }
-  lastMapSelection = null; // consumed as a one-time fallback, same as pendingSharedMapView
-  onMapSelectionChanged();
-}
-
-function onMapSelectionChanged() {
-  const entry = currentResponseEntry();
-  document.getElementById("product-meta").innerHTML = productMetaHtml(entry);
-  saveLastSelection(mapPickerState.category, mapPickerState.product, mapPickerState.response);
-  renderInteractiveMap();
+// The Variable panel stays put (so a different product can always be chosen);
+// only the Time & type and Display panels hide when a product has no COG.
+function setMapControlPanelsVisible(visible) {
+  const display = visible ? "" : "none";
+  document.getElementById("ol-time-panel").style.display = display;
+  document.getElementById("ol-display-panel").style.display = display;
 }
 
 const olMapState = {
@@ -167,9 +143,129 @@ const olMapState = {
   styleCache: {},
   layerCache: {}, // COG url -> built ol.layer.WebGLTile, reused across mode/period/year revisits
   currentStyle: null,
-  currentCogUrl: null,
   currentScale: null,
+  colormap: null, // null = the product's own default NCL palette; else a chosen NCL_COLORMAPS key
+  invert: false, // flip the color scale direction (legend gradient + raster)
 };
+
+// The Color theme dropdown lists every palette at once (not filtered by mode),
+// so look these up by name across all groups. A product default named
+// "<name>_r" (reversed) is matched to its base "<name>" option plus the Invert
+// button -- the dropdown itself carries no _r variants.
+function lookupColormap(key) {
+  if (typeof NCL_COLORMAPS === "undefined") return null;
+  for (const group of Object.values(NCL_COLORMAPS)) if (group[key]) return group[key];
+  return null;
+}
+function lookupColormapColors(key) {
+  const entry = lookupColormap(key);
+  return entry ? entry.colors : null;
+}
+
+const CM_THEME_LABELS = { diverging: "Diverging", sequential: "Sequential", discrete: "Discrete" };
+
+// CSS linear-gradient preview for a palette swatch: a smooth ramp, or the same
+// 11 hard bins the map's discrete mode renders.
+function colormapGradientCss(colors, binned, nBins) {
+  if (!colors || !colors.length) return "transparent";
+  if (!binned) return `linear-gradient(to right, ${colors.join(", ")})`;
+  const n = nBins || DISCRETE_BINS;
+  const bins = discreteBinColors(colors, n);
+  const steps = [];
+  for (let i = 0; i < n; i++) {
+    steps.push(`${bins[i]} ${((i / n) * 100).toFixed(2)}%`,
+      `${bins[i]} ${(((i + 1) / n) * 100).toFixed(2)}%`);
+  }
+  return `linear-gradient(to right, ${steps.join(", ")})`;
+}
+
+// Build the custom colour-theme panel: every palette listed once as a gradient
+// swatch + name, grouped by theme (Diverging / Sequential continuous ramps,
+// Discrete stepped tables). A palette's continuous-vs-stepped nature is intrinsic
+// to its group -- continuous ones preview (and render) as smooth ramps, discrete
+// ones stepped at their own native level count -- so there's no separate
+// render-mode toggle. The active entry is marked per-render by syncColormapSelect.
+function populateColormapSelect() {
+  const panel = document.getElementById("ol-colormap-panel");
+  if (!panel || typeof NCL_COLORMAPS === "undefined") return;
+  let html = "";
+  for (const [theme, themeLabel] of Object.entries(CM_THEME_LABELS)) {
+    const group = NCL_COLORMAPS[theme];
+    if (!group) continue;
+    html += `<div class="cm-theme">${themeLabel}</div>`;
+    for (const name of Object.keys(group)) {
+      const entry = group[name];
+      const swatch = entry.discrete
+        ? colormapGradientCss(entry.colors, true, entry.colors.length)
+        : colormapGradientCss(entry.colors, false);
+      html += `<button type="button" role="option" class="cm-option" data-value="${name}">` +
+        `<span class="cm-swatch" style="background-image:${swatch}"></span>` +
+        `<span class="cm-option-name">${name}</span></button>`;
+    }
+  }
+  panel.innerHTML = html;
+}
+
+// Reflect the active view in the trigger (swatch + name) and the highlighted
+// option. Active = the user's chosen palette, else this product/mode's own
+// default (modeDefaultCmapName); a default with no NCL match (USDM's discrete
+// category legend) shows as "Product default" and still renders from its style.
+function syncColormapSelect(style) {
+  const panel = document.getElementById("ol-colormap-panel");
+  if (!panel) return;
+  // A product default may be a reversed "<name>_r"; the dropdown carries only
+  // base names, so match (and label) by the base and let currentPalette supply
+  // the actual oriented colors -- its style-colors fallback handles reversal.
+  const rawName = activePaletteName(style);
+  const baseName = rawName ? rawName.replace(/_r$/, "") : null;
+  panel.querySelectorAll(".cm-option").forEach((btn) => {
+    btn.setAttribute("aria-selected", String(btn.dataset.value === baseName));
+  });
+  const colors = currentPalette(style);
+  const disc = activeDiscreteEntry();
+  const sw = document.getElementById("ol-cm-current-swatch");
+  const nm = document.getElementById("ol-cm-current-name");
+  if (sw) sw.style.backgroundImage = (colors && colors.length)
+    ? colormapGradientCss(colors, !!disc, disc ? disc.colors.length : undefined) : "none";
+  if (nm) nm.textContent = baseName ? (disc ? `${baseName} · ${disc.colors.length}-level` : baseName) : "Product default";
+}
+
+// The active palette's hex stops. olMapState.colormap is the user's chosen NCL
+// table name, or null = follow the product's own default for this mode (the
+// map_style's anomaly_cmap in Anomaly, baseline_cmap in Climatology/Raw). Falls
+// back to the style's own baked colors if the name doesn't resolve to an
+// NCL_COLORMAPS entry (e.g. USDM's discrete category legend).
+function modeDefaultCmapName(style) {
+  return olMapState.mode === "anomaly" ? style.anomaly_cmap : style.baseline_cmap;
+}
+// The active palette name: the user's override, else the product's own default
+// for this mode (which may be a reversed "<name>_r").
+function activePaletteName(style) {
+  return olMapState.colormap || modeDefaultCmapName(style);
+}
+// A native-discrete table auto-switches the map to stepped rendering at its own
+// level count -- but only when the user explicitly picks it. Product defaults
+// keep their exported (continuous / toggle-driven) look, so return null for them.
+function activeDiscreteEntry() {
+  if (!olMapState.colormap) return null;
+  const entry = lookupColormap(olMapState.colormap.replace(/_r$/, ""));
+  return entry && entry.discrete ? entry : null;
+}
+function currentPalette(style) {
+  let palette;
+  if (olMapState.colormap) {
+    // User override: the NCL table's own stops; a "<name>_r" override is the
+    // base reversed (the dropdown carries only base names).
+    const base = olMapState.colormap.replace(/_r$/, "");
+    palette = (lookupColormapColors(base) || []).slice();
+    if (/_r$/.test(olMapState.colormap)) palette.reverse();
+    if (!palette.length) palette = olMapState.mode === "anomaly" ? style.anomaly_colors : style.baseline_colors;
+  } else {
+    // Product default: the style's own baked colors, oriented as exported.
+    palette = olMapState.mode === "anomaly" ? style.anomaly_colors : style.baseline_colors;
+  }
+  return olMapState.invert ? palette.slice().reverse() : palette;
+}
 
 const COG_NODATA = -32768;
 
@@ -193,23 +289,88 @@ const COG_NODATA = -32768;
 // not assumed) so a Climatology/Raw legend (built client-side from just
 // [vmin, vmax], see updateInteractiveMapLayer) looks identical in shape to
 // an Anomaly one, not just similar.
-const DISCRETE_BINS = 11;
+function hexToRgbTriple(hex) {
+  const v = hex.replace("#", "");
+  return [parseInt(v.slice(0, 2), 16), parseInt(v.slice(2, 4), 16), parseInt(v.slice(4, 6), 16)];
+}
 
-function buildBinnedColorExpression(boundaries, colors, scale) {
-  const band = ["band", 1];
-  const value = ["/", band, scale];
-  // ol.source.GeoTIFF's `nodata` option auto-generates a second (alpha)
-  // band -- 1 where valid, 0 where nodata -- rather than preserving the
-  // sentinel value in band 1 (confirmed directly via getData() in a real
-  // browser: a known-ocean pixel read back as [0, 0], a known-land pixel as
-  // [realValue, 255/1]). Without this explicit check every nodata pixel's
-  // band-1 value of 0 fell into whatever bin straddles zero, rendering
-  // ocean as an opaque "near-normal" color instead of transparent.
-  const expr = ["case", ["==", ["band", 2], 0], ["color", 0, 0, 0, 0]];
-  for (let i = 0; i < boundaries.length - 1; i++) {
-    expr.push(["<", value, boundaries[i + 1]], colors[i]);
+// Continuous color ramp (Dylan, 2026-10: "use continuous colorbars for all
+// these maps... good continuous versions at NCL"). The palette's hex stops
+// (256 for climatology/raw, fewer but still smooth for anomaly) are spread
+// evenly across [vmin, vmax] and interpolated linearly; OL clamps values
+// outside that range to the end colors. Replaces the old discrete-bin scheme,
+// whose break ticks/extend arrows were hard to format on the dynamic maps.
+// Cap on how many color stops go into the WebGL "interpolate" expression. A
+// 256-stop baseline palette (and even a 33-stop NCL one on stricter GPUs)
+// compiles to a GLSL chain so long the fragment shader fails outright with
+// "Expression too complex" and the raster never paints -- raw/climatology maps
+// went fully transparent while anomaly (11 stops) was fine (Dylan, 2026-10). A
+// linear ramp over ~16 evenly-spaced stops of an already-smooth NCL table is
+// visually indistinguishable from the full-resolution palette.
+const MAX_COLOR_STOPS = 16;
+function buildContinuousColorExpression(vmin, vmax, colors, scale) {
+  const value = ["/", ["band", 1], scale];
+  const stops = [];
+  const n = Math.min(colors.length, MAX_COLOR_STOPS);
+  for (let i = 0; i < n; i++) {
+    const t = n === 1 ? 0 : i / (n - 1);
+    const v = vmin + t * (vmax - vmin);
+    const [r, g, b] = hexToRgbTriple(colors[Math.round(t * (colors.length - 1))]);
+    stops.push(v, ["color", r, g, b]);
   }
-  expr.push(colors[colors.length - 1]);
+  // ol.source.GeoTIFF's `nodata` option adds an alpha band (0 at nodata); gate
+  // on it so ocean/out-of-domain stays transparent instead of taking vmin's
+  // color (confirmed via getData(): nodata reads back as [0, 0]).
+  return ["case", ["==", ["band", 2], 0], ["color", 0, 0, 0, 0],
+    ["interpolate", ["linear"], value, ...stops]];
+}
+
+// Discrete 11-bin version of the same palette (Dylan, 2026-10: pick a "Discrete
+// (11-bin)" entry from the one Color-theme dropdown to switch any variable from
+// a smooth ramp to hard bins). [vmin,vmax] is cut into DISCRETE_BINS equal bins;
+// value in [edge_i, edge_{i+1}) takes the i-th of DISCRETE_BINS colors sampled
+// across the palette. For a symmetric anomaly (vmin=-vmax) the odd count leaves
+// one centre bin straddling zero, matching the pipeline's own BoundaryNorm maps.
+const DISCRETE_BINS = 11;
+function discreteBinColors(colors, nBins) {
+  const n = nBins || DISCRETE_BINS;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    out.push(colors[Math.round((i / (n - 1)) * (colors.length - 1))]);
+  }
+  return out;
+}
+function buildDiscreteColorExpression(vmin, vmax, colors, scale, nBins) {
+  const n = nBins || DISCRETE_BINS;
+  const value = ["/", ["band", 1], scale];
+  const bins = discreteBinColors(colors, n);
+  const expr = ["case", ["==", ["band", 2], 0], ["color", 0, 0, 0, 0]];
+  for (let i = 0; i < n; i++) {
+    const [r, g, b] = hexToRgbTriple(bins[i]);
+    if (i < n - 1) {
+      expr.push(["<", value, vmin + ((i + 1) / n) * (vmax - vmin)], ["color", r, g, b]);
+    } else {
+      expr.push(["color", r, g, b]); // final bin = the "case" default
+    }
+  }
+  return expr;
+}
+
+// Like buildDiscreteColorExpression but keyed to EXPLICIT break values (the
+// data's own BoundaryNorm edges) rather than even bins: value in
+// [edges[i], edges[i+1]) -> colors[i]. Reproduces the pipeline's binned
+// anomaly maps exactly, so the legend ticks land on the real breaks.
+function buildBoundaryColorExpression(edges, colors, scale) {
+  const value = ["/", ["band", 1], scale];
+  const expr = ["case", ["==", ["band", 2], 0], ["color", 0, 0, 0, 0]];
+  for (let i = 0; i < colors.length; i++) {
+    const [r, g, b] = hexToRgbTriple(colors[i]);
+    if (i < colors.length - 1) {
+      expr.push(["<", value, edges[i + 1]], ["color", r, g, b]);
+    } else {
+      expr.push(["color", r, g, b]);
+    }
+  }
   return expr;
 }
 
@@ -222,6 +383,24 @@ function pickTickDecimals(boundaries) {
     if (new Set(formatted).size === formatted.length) return d;
   }
   return 6;
+}
+
+// Round "axis" tick values across [vmin, vmax], stepped by 1/2/5 times a power
+// of ten so the labels land on human-friendly numbers (0, 50, 100, ...) rather
+// than vmin + k*(range/n) fractions -- the same idea as a matplotlib colorbar's
+// tick locator. targetCount is a target, not exact: the chosen round step gives
+// however many ticks fit the range.
+function niceTickValues(vmin, vmax, targetCount) {
+  const range = vmax - vmin;
+  if (!(range > 0)) return [vmin];
+  const rawStep = range / targetCount;
+  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const norm = rawStep / mag;
+  const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+  const first = Math.ceil(vmin / step - 1e-9) * step;
+  const ticks = [];
+  for (let v = first; v <= vmax + step * 1e-9; v += step) ticks.push(v);
+  return ticks;
 }
 
 function olPeriodLabel(period) {
@@ -251,12 +430,26 @@ function initInteractiveMap() {
     }),
     zIndex: 10,
   });
+  // HUC2 basin outlines, off by default -- a thicker teal stroke so they read
+  // as a distinct overlay from the thin black state lines when both are shown.
+  olMapState.hucLayer = new ol.layer.Vector({
+    source: new ol.source.Vector({
+      url: assetUrl("data/huc2_west.geojson"),
+      format: new ol.format.GeoJSON(),
+    }),
+    style: new ol.style.Style({
+      stroke: new ol.style.Stroke({ color: "#0570b0", width: 2 }),
+    }),
+    zIndex: 11,
+    visible: false,
+  });
 
   olMapState.map = new ol.Map({
     target: "ol-map",
     layers: [
       new ol.layer.Tile({ source: new ol.source.OSM({ opaque: false }), opacity: 0.5 }),
       olMapState.boundaryLayer,
+      olMapState.hucLayer,
     ],
     view: new ol.View({
       center: ol.proj.fromLonLat([-113, 40]), // overridden by view.fit() below to the real domain extent
@@ -265,19 +458,28 @@ function initInteractiveMap() {
       showFullExtent: true, // let the user zoom out to exactly the full extent, no further
     }),
   });
-  // ol.View.fit() preserves the container's own aspect ratio, padding
-  // symmetrically outside the extent wherever the container's shape doesn't
-  // match the domain's -- the fixed 520px-tall container was much wider than
-  // this (nearly square, once Mercator-projected) domain, so it padded with
-  // a lot of visibly empty area east of the real data (and an equal amount
-  // over the Pacific to the west). Setting the container's own aspect-ratio
-  // to the extent's real, computed ratio first removes that padding instead
-  // of guessing a height.
-  const mapEl = document.getElementById("ol-map");
-  mapEl.style.aspectRatio = `${(extent[2] - extent[0]) / (extent[3] - extent[1])}`;
+  // The map fills its stage: full content width, a viewport-bounded height set
+  // in CSS (.map-stage #ol-map). ol.View.fit() then frames the real domain
+  // extent inside it, padding symmetrically with basemap where the stage's
+  // shape doesn't match the domain's -- that surrounding context (a bit of
+  // ocean west, plains/Canada/Mexico around the edges) is intentional, matching
+  // how dedicated drought-mapping dashboards present a region.
   olMapState.map.updateSize();
-  olMapState.map.getView().fit(extent, { size: olMapState.map.getSize() || [600, 500] });
+  olMapState.map.getView().fit(extent, { size: olMapState.map.getSize() || [800, 600] });
   olMapState.homeExtent = extent; // "Reset view" button re-fits to this after a user pans/zooms away
+  // The stage's final width isn't settled on the first frame (grid sizing + web
+  // fonts) and it also changes at the responsive breakpoint; OL keeps the center
+  // + resolution on resize but doesn't re-fit, which left the domain off-center
+  // and overscaled. Re-fit to the domain on size changes until the user takes
+  // control of the view.
+  const refitHome = () => {
+    if (olMapState.userMovedView) return;
+    olMapState.map.updateSize();
+    olMapState.map.getView().fit(olMapState.homeExtent, { size: olMapState.map.getSize() });
+  };
+  new ResizeObserver(refitHome).observe(document.getElementById("ol-map"));
+  olMapState.map.on("pointerdown", () => { olMapState.userMovedView = true; });
+  olMapState.map.getViewport().addEventListener("wheel", () => { olMapState.userMovedView = true; }, { passive: true });
 
   document.getElementById("ol-period-track").addEventListener("click", (event) => {
     const stop = event.target.closest("button[data-period]");
@@ -291,8 +493,51 @@ function initInteractiveMap() {
     if (!button || button.disabled) return;
     olMapState.mode = button.dataset.mode;
     document.querySelectorAll("#ol-mode-toggle button").forEach((btn) => btn.classList.toggle("active", btn === button));
+    updateInteractiveMapLayer(); // re-syncs the colour-theme selection to the new mode's default
+
+  });
+  const cmDd = document.getElementById("ol-colormap-dd");
+  const cmBtn = document.getElementById("ol-colormap-btn");
+  const cmPanel = document.getElementById("ol-colormap-panel");
+  const closeColormapPanel = () => { cmPanel.hidden = true; cmBtn.setAttribute("aria-expanded", "false"); };
+  cmBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const opening = cmPanel.hidden;
+    cmPanel.hidden = !opening;
+    cmBtn.setAttribute("aria-expanded", String(opening));
+    if (opening) {
+      const active = cmPanel.querySelector('.cm-option[aria-selected="true"]');
+      if (active) active.scrollIntoView({ block: "center" });
+    }
+  });
+  // Palette + binning are baked into each cached WebGLTile color style at
+  // construction, so a change needs fresh layers (COG bytes stay HTTP-cached).
+  const rebuildColormapLayers = () => {
+    if (olMapState.rasterLayer) { olMapState.map.removeLayer(olMapState.rasterLayer); olMapState.rasterLayer = null; }
+    olMapState.layerCache = {};
+    updateInteractiveMapLayer();
+  };
+  cmPanel.addEventListener("click", (event) => {
+    event.stopPropagation(); // keep in-panel clicks from the outside-click handler
+    const opt = event.target.closest(".cm-option");
+    if (!opt) return;
+    olMapState.colormap = opt.dataset.value || null;
+    closeColormapPanel();
+    rebuildColormapLayers();
+  });
+  document.addEventListener("click", (event) => { if (cmDd && !cmDd.contains(event.target)) closeColormapPanel(); });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeColormapPanel(); });
+  document.getElementById("ol-invert-btn").addEventListener("click", (event) => {
+    olMapState.invert = !olMapState.invert;
+    event.currentTarget.classList.toggle("active", olMapState.invert);
+    event.currentTarget.setAttribute("aria-pressed", String(olMapState.invert));
+    // Same rebuild as a colormap change: the palette is baked into each cached
+    // WebGLTile's color style at construction, so reversed colors need fresh layers.
+    if (olMapState.rasterLayer) { olMapState.map.removeLayer(olMapState.rasterLayer); olMapState.rasterLayer = null; }
+    olMapState.layerCache = {};
     updateInteractiveMapLayer();
   });
+  populateColormapSelect();
   document.getElementById("ol-year-select").addEventListener("change", (event) => {
     olMapState.year = parseInt(event.target.value, 10);
     updateYearStepperButtons();
@@ -300,10 +545,23 @@ function initInteractiveMap() {
   });
   document.getElementById("ol-year-prev-btn").addEventListener("click", () => stepYear(-1));
   document.getElementById("ol-year-next-btn").addEventListener("click", () => stepYear(1));
+  document.getElementById("ol-year-slider").addEventListener("input", (event) => {
+    const years = olMapState.availableYears || [];
+    const year = years[parseInt(event.target.value, 10)];
+    if (year === undefined || year === olMapState.year) return;
+    olMapState.year = year;
+    document.getElementById("ol-year-select").value = String(year);
+    updateYearStepperButtons();
+    updateInteractiveMapLayer();
+  });
+  document.getElementById("ol-huc-toggle").addEventListener("change", (event) => {
+    olMapState.hucLayer.setVisible(event.target.checked);
+  });
   document.getElementById("ol-boundary-toggle").addEventListener("change", (event) => {
     olMapState.boundaryLayer.setVisible(event.target.checked);
   });
   document.getElementById("ol-reset-view-btn").addEventListener("click", () => {
+    olMapState.userMovedView = false; // re-enable auto-centering on later resizes
     olMapState.map.getView().fit(olMapState.homeExtent, { size: olMapState.map.getSize(), duration: 300 });
   });
   document.getElementById("ol-fullscreen-btn").addEventListener("click", () => {
@@ -322,9 +580,6 @@ function initInteractiveMap() {
     setTimeout(() => olMapState.map.updateSize(), 0);
   });
   document.getElementById("ol-screenshot-btn").addEventListener("click", takeMapScreenshot);
-  document.getElementById("ol-copy-url-btn").addEventListener("click", () => {
-    if (olMapState.currentCogUrl) copyToClipboard(new URL(olMapState.currentCogUrl, window.location.href).href);
-  });
   document.getElementById("ol-copy-view-btn").addEventListener("click", copyViewLink);
 
   olMapState.map.on("singleclick", (event) => {
@@ -343,10 +598,15 @@ function initInteractiveMap() {
         readout.textContent = "No data at this point.";
         return;
       }
-      const value = raw / olMapState.currentScale; // undo this file's own Int16 scale (varies per file, read from its style JSON entry)
-      const unitSuffix = currentResponseEntry().units || "";
+      const nativeUnits = currentResponseEntry().units || "";
+      // undo this file's own Int16 scale, then convert to the canonical unit
+      // (e.g. kg m-2 -> mm) so the map reads in the same unit as everywhere else.
+      const value = (raw / olMapState.currentScale) * canonicalUnitFactor(nativeUnits);
+      const unitSuffix = canonicalUnit(nativeUnits);
       const lonLat = ol.proj.toLonLat(event.coordinate);
-      readout.textContent = `${value.toFixed(2)}${unitSuffix ? " " + unitSuffix : ""} at ${lonLat[1].toFixed(3)}°N, ${lonLat[0].toFixed(3)}°E`;
+      const latStr = `${Math.abs(lonLat[1]).toFixed(3)}°${lonLat[1] >= 0 ? "N" : "S"}`;
+      const lonStr = `${Math.abs(lonLat[0]).toFixed(3)}°${lonLat[0] >= 0 ? "E" : "W"}`;
+      readout.textContent = `${value.toFixed(2)}${unitSuffix ? " " + unitSuffix : ""} at ${latStr}, ${lonStr}`;
     } catch (err) {
       readout.textContent = "Could not read a value at this point.";
     }
@@ -379,19 +639,24 @@ async function fetchMapStyle(product, response) {
 // Climatology (always available whenever a period slot exists at all) if
 // the currently active mode just became unavailable for the new period.
 function updateModeToggleAvailability(slot) {
+  const available = {};
   document.querySelectorAll("#ol-mode-toggle button[data-mode]").forEach((btn) => {
     const mode = btn.dataset.mode;
-    const available = mode === "climatology"
+    available[mode] = mode === "climatology"
       ? "baseline" in slot
       : Object.keys(slot).some((k) => k.startsWith(`${mode}_`));
-    btn.disabled = !available;
-    btn.title = available ? "" : "No data for this mode in the selected period.";
-    if (!available && btn.classList.contains("active")) {
-      btn.classList.remove("active");
-      olMapState.mode = "climatology";
-      document.querySelector('#ol-mode-toggle button[data-mode="climatology"]').classList.add("active");
-    }
+    btn.disabled = !available[mode];
+    btn.title = available[mode] ? "" : "No data for this mode in the selected period.";
   });
+  // If the active mode has no COGs here, switch to the first mode that DOES --
+  // a fixed climatology fallback left a raw-only product (OCO-2's sounding map,
+  // which has no anomaly or climatology) blank.
+  if (!available[olMapState.mode]) {
+    const fallback = ["anomaly", "raw", "climatology"].find((m) => available[m]);
+    document.querySelectorAll("#ol-mode-toggle button[data-mode]").forEach((btn) =>
+      btn.classList.toggle("active", btn.dataset.mode === fallback));
+    if (fallback) olMapState.mode = fallback;
+  }
 }
 
 // A drag slider gave no precise, tap-friendly way to land on a specific
@@ -422,7 +687,7 @@ function updateYearControlForPeriod(slot) {
     olMapState.year = null;
     return;
   }
-  wrap.style.display = "inline-flex";
+  wrap.style.display = "flex";
   if (!years.includes(olMapState.year)) {
     olMapState.year = years[years.length - 1];
   }
@@ -434,7 +699,34 @@ function updateYearControlForPeriod(slot) {
     select.appendChild(option);
   });
   select.value = String(olMapState.year);
+  // The scrubber ranges over availableYears by INDEX (years aren't always
+  // contiguous), so dragging it steps through exactly the years that have a COG.
+  const slider = document.getElementById("ol-year-slider");
+  slider.min = "0";
+  slider.max = String(years.length - 1);
+  slider.value = String(Math.max(0, years.indexOf(olMapState.year)));
+  buildYearAxis(years);
   updateYearStepperButtons();
+}
+
+// Year ticks under the scrubber: pick a step (1/2/3/5/10 years) giving a dozen
+// or so evenly-spaced labels -- dense enough to read a year off the slider, not
+// so dense the 4-digit labels overlap. Always include the first and last year.
+function buildYearAxis(years) {
+  const axis = document.getElementById("ol-year-axis");
+  if (!axis) return;
+  if (years.length < 2) { axis.innerHTML = ""; return; }
+  const last = years.length - 1;
+  const lastYear = years[last];
+  // A tick at EVERY year (the scrubber selects whole years, so the integer
+  // granularity should be visible), with a 4-digit label only on the latest
+  // year and every 5th year back from it, so labels never overlap while the
+  // per-year minor ticks stay readable.
+  const major = new Set([last]);
+  years.forEach((y, i) => { if ((lastYear - y) % 5 === 0) major.add(i); });
+  axis.innerHTML = years.map((y, i) =>
+    `<span class="ol-year-tick${major.has(i) ? " major" : ""}" style="left:${(i / last) * 100}%">${major.has(i) ? y : ""}</span>`
+  ).join("");
 }
 
 function updateYearStepperButtons() {
@@ -442,6 +734,8 @@ function updateYearStepperButtons() {
   const currentIndex = years.indexOf(olMapState.year);
   document.getElementById("ol-year-prev-btn").disabled = currentIndex <= 0;
   document.getElementById("ol-year-next-btn").disabled = currentIndex === -1 || currentIndex >= years.length - 1;
+  const slider = document.getElementById("ol-year-slider");
+  if (slider && currentIndex !== -1) slider.value = String(currentIndex);
 }
 
 function stepYear(delta) {
@@ -472,30 +766,10 @@ function stepYear(delta) {
 // while the map itself sits in Climatology mode (only the year CONTROL is
 // hidden there, see updateYearControlForPeriod), so the same target year
 // stays available here regardless of which mode the map is showing.
-function regionTableCellClass(result, drierIsHigh) {
-  if (result.sigma === null) return "";
-  const isStress = drierIsHigh ? result.sigma > 0 : result.sigma < 0;
-  return isStress ? "stress" : "relief";
-}
-
-function formatRankBadge(result, cls) {
-  if (result.stressRank === null || result.n === null) return "&mdash;";
-  const badgeCls = cls === "stress" || cls === "relief" ? cls : "";
-  return `<span class="rank-badge ${badgeCls}">${result.stressRank}/${result.n}</span>`;
-}
-
 async function renderRegionValuesTable(entry) {
   const heading = document.getElementById("ol-region-table-heading");
   const note = document.getElementById("ol-region-table-note");
   const body = document.getElementById("ol-region-table-body");
-  if (olMapState.year === null) {
-    heading.textContent = "Regional values";
-    body.innerHTML = "";
-    note.textContent = olMapState.mode === "climatology"
-      ? "Regional values are year-specific — switch to Raw units or Anomaly (and pick a year) to see them."
-      : "No years available for this selection.";
-    return;
-  }
   if (!entry.aggregation) {
     heading.textContent = "Regional values";
     body.innerHTML = "";
@@ -503,39 +777,36 @@ async function renderRegionValuesTable(entry) {
     return;
   }
   const period = olMapState.period;
-  const year = olMapState.year;
-  heading.textContent = `Regional values — ${olPeriodLabel(period)} ${year}`;
   const data = await fetchTimeseriesJson(`${mapPickerState.product}_${mapPickerState.response}`);
-  // Named regions + all 11 western states + all 5 HUC2 basins -- the same
-  // full region set data.html's Summary Table exposes (as three separate
-  // group tabs there; here as one list with group-row dividers, since rows
-  // scale far more gracefully than the Summary Table's per-region COLUMNS
-  // would). Was just the 6 named regions (Dylan, 2026-09-29: "doesn't
-  // include states or huc2 basins").
-  const regionGroups = [
-    { label: "Regions", entries: regionEntries() },
-    { label: "States", entries: manifest.western_states.map((code) => ({ code, label: manifest.state_labels[code] })) },
-    { label: "HUC2 basins", entries: manifest.huc2_regions.map((code) => ({ code, label: manifest.huc2_labels[code] })) },
-  ];
-  const rows = regionGroups.flatMap(({ label: groupLabel, entries }) => {
-    const groupRow = `<tr class="group-row"><td colspan="4">${groupLabel}</td></tr>`;
-    const dataRows = entries.map(({ code, label }) => {
-      const region = data.regions[code];
-      const result = region ? computeWindowValue(data, region, period, year) : null;
-      if (!result) return `<tr><td>${label}</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>`;
-      const cls = regionTableCellClass(result, data.drier_is_high);
-      const rawText = `${result.rawValue.toFixed(2)} ${data.units}`;
-      const sigmaText = result.sigma === null ? "&mdash;" : `${result.sigma >= 0 ? "+" : ""}${result.sigma.toFixed(1)}`;
-      const rankText = formatRankBadge(result, cls);
-      return `<tr><td>${label}</td><td>${rawText}</td><td class="${cls}">${sigmaText}</td><td>${rankText}</td></tr>`;
-    });
-    return [groupRow, ...dataRows];
-  });
-  body.innerHTML = rows.join("");
-  const nativeNote = data.native_standardized
-    ? " Native standardized index -- rank on record not computed for these (the reading is already a standardized departure)."
-    : "";
-  note.textContent = `Rank 1 = the most drought-stressed year of record for this response's own stress direction; higher ranks are progressively closer to relief.${nativeNote}`;
+  // The table is mode-independent (raw value / normal / anomaly / sigma / rank
+  // for one year), so it should populate even on a fresh load in Climatology
+  // mode -- whose year CONTROL is hidden but whose target year is still
+  // meaningful. Default to the latest year the data covers when none is chosen.
+  if (olMapState.year === null) olMapState.year = latestYearInData(data);
+  const year = olMapState.year;
+  if (year === null) {
+    heading.textContent = "Regional values";
+    body.innerHTML = "";
+    note.textContent = "No years available for this selection.";
+    return;
+  }
+  heading.textContent = `Regional values — ${mapPickerState.product} · ${responseDisplay(mapPickerState.response)}, ${olPeriodLabel(period)} ${year}`;
+  const rawHeader = document.getElementById("ol-region-rawval-th");
+  if (rawHeader) rawHeader.textContent = rawValueHeaderLabel(data, period);
+  body.innerHTML = regionalSummaryRowsHtml(data, period, year);
+  applyPctOfNormalHeader(body, data);
+  note.textContent = regionalSummaryNote(data);
+}
+
+function latestYearInData(data) {
+  let maxYear = null;
+  for (const code in data.regions) {
+    const dates = data.regions[code].dates;
+    if (!dates || !dates.length) continue;
+    const y = parseInt(dates[dates.length - 1].slice(0, 4), 10);
+    if (maxYear === null || y > maxYear) maxYear = y;
+  }
+  return maxYear;
 }
 
 async function updateInteractiveMapLayer() {
@@ -546,7 +817,7 @@ async function updateInteractiveMapLayer() {
     const when = olMapState.mode === "climatology"
       ? periodLabel(olMapState.period)
       : `${periodLabel(olMapState.period)} ${olMapState.year}`;
-    titleEl.textContent = `${mapPickerState.product} · ${mapPickerState.response} — ${when} (${modeLabel})`;
+    titleEl.textContent = `${mapPickerState.product} · ${responseDisplay(mapPickerState.response)} — ${when} (${modeLabel})`;
   }
   // Reads the same timeseries JSON every other page uses, not the map image
   // -- so a failure to load/render the actual raster tile below never
@@ -557,6 +828,7 @@ async function updateInteractiveMapLayer() {
   // (!style) ... return" branch.
   renderRegionValuesTable(entry);
   const style = await fetchMapStyle(mapPickerState.product, mapPickerState.response);
+  olMapState.currentStyle = style; // for playableMonths() -- which months have a COG for this mode+year
   const emptyMsg = document.getElementById("ol-map-empty");
   // Reset to the default "no data expected" wording every call -- only the
   // load-failure branch below overrides it, and without this reset a prior
@@ -575,35 +847,36 @@ async function updateInteractiveMapLayer() {
     // Same staleness for the controls that live outside #ol-map-wrap (so
     // hiding the map alone doesn't hide them): mode buttons kept the
     // previous product's enabled/disabled state, the year control kept its
-    // previous range, and the download/copy actions still pointed at the
-    // previous product's file.
+    // previous range.
     document.querySelectorAll("#ol-mode-toggle button[data-mode]").forEach((btn) => {
       btn.disabled = true;
       btn.title = "No data for this selection.";
     });
     document.getElementById("ol-year-control-wrap").style.display = "none";
-    olMapState.currentCogUrl = null;
-    const geotiffLink = document.getElementById("ol-geotiff-link");
-    geotiffLink.removeAttribute("href");
-    geotiffLink.removeAttribute("download");
     return;
   }
   const slot = style.periods[olMapState.period];
   updateModeToggleAvailability(slot);
   updateYearControlForPeriod(slot);
+  updatePeriodAvailability();
+  // Re-render the title now that year/mode are reconciled to this product's
+  // actual coverage: the two calls above can clamp the year to the product's
+  // last available year or fall the mode back to an available one, and the
+  // title set at the top of this function uses the pre-reconciliation values
+  // -- without this it would mislabel the year/mode of the raster drawn below.
+  if (titleEl) {
+    const drawnModeLabel = olMapState.mode === "climatology" ? "Climatology" : olMapState.mode === "raw" ? "Raw units" : "Anomaly";
+    const drawnWhen = olMapState.mode === "climatology"
+      ? periodLabel(olMapState.period)
+      : `${periodLabel(olMapState.period)} ${olMapState.year}`;
+    titleEl.textContent = `${mapPickerState.product} · ${responseDisplay(mapPickerState.response)} — ${drawnWhen} (${drawnModeLabel})`;
+  }
   const key = olMapState.mode === "climatology" ? "baseline" : `${olMapState.mode}_${olMapState.year}`;
   const fileEntry = slot[key];
   if (!fileEntry) {
     wrap.style.display = "none";
     emptyMsg.style.display = "block";
     document.getElementById("ol-legend").innerHTML = "";
-    // Mode buttons/slider were already set correctly for this slot above,
-    // but the download/copy actions still point at whatever file last
-    // rendered successfully -- same staleness as the branch above.
-    olMapState.currentCogUrl = null;
-    const geotiffLink = document.getElementById("ol-geotiff-link");
-    geotiffLink.removeAttribute("href");
-    geotiffLink.removeAttribute("download");
     return;
   }
   const file = fileEntry.file;
@@ -661,78 +934,84 @@ async function updateInteractiveMapLayer() {
     emptyMsg.style.display = "block";
     emptyMsg.textContent = "Map file failed to load for this selection.";
     document.getElementById("ol-legend").innerHTML = "";
-    olMapState.currentCogUrl = null;
-    const geotiffLink = document.getElementById("ol-geotiff-link");
-    geotiffLink.removeAttribute("href");
-    geotiffLink.removeAttribute("download");
     return;
   }
 
-  olMapState.currentCogUrl = url;
   olMapState.currentScale = fileEntry.scale;
-  document.getElementById("ol-geotiff-link").href = url;
-  document.getElementById("ol-geotiff-link").setAttribute(
-    "download", `${mapPickerState.product}_${mapPickerState.response}_${olMapState.period}_${mapViewSuffix()}.tif`
-  );
 
   const legend = document.getElementById("ol-legend");
-  const units = entry.units || "";
-  const palette = olMapState.mode === "climatology" || olMapState.mode === "raw"
-    ? style.baseline_colors : style.anomaly_colors;
-  const label = olMapState.mode === "climatology" ? `Climatology (${units})`
-    : olMapState.mode === "raw" ? `${olMapState.year} (${units})`
-    : `${units} anomaly`;
+  const nativeUnits = entry.units || "";
+  const units = canonicalUnit(nativeUnits);
+  const unitFactor = canonicalUnitFactor(nativeUnits);
+  const palette = currentPalette(style);
+  // Continuous palettes render as a smooth ramp; a native-discrete palette
+  // renders stepped at its own level count (there is no separate mode toggle).
+  const discEntry = activeDiscreteEntry();
+  const nBins = discEntry ? discEntry.colors.length : DISCRETE_BINS;
+  const renderBinned = !!discEntry;
+  syncColormapSelect(style); // reflect the active palette in the dropdown
+  const unitSuffix = units ? ` [${units}]` : "";
+  const pv = `${mapPickerState.product} · ${responseDisplay(mapPickerState.response)}`;
+  const label = olMapState.mode === "climatology" ? `${pv} — climatology${unitSuffix}`
+    : olMapState.mode === "raw" ? `${pv} — ${olMapState.year}${unitSuffix}`
+    : `${pv} — ${olMapState.year} anomaly${unitSuffix}`;
   let boundaries = fileEntry.boundaries;
-  let binColors = palette;
   let colorExpr = null;
   if (!boundaries) {
     // Native standardized indices (SPI/SPEI/EDDI/...): value IS the anomaly,
     // no boundaries computed yet -- show units only, no color scale.
     legend.innerHTML = `<div class="ol-legend-label">${units}</div>`;
   } else {
-    // Climatology/Raw ships only [vmin, vmax] (a continuous ramp needs
-    // nothing more), but every map now renders as discrete bins -- Anomaly
-    // included, no exceptions (Dylan, 2026-09: "all the maps should use
-    // discrete color bins... there is absolutely no reason the climatology
-    // maps and anomaly maps aren't 100% identical, including the colorbar
-    // style"). Expand [vmin, vmax] into DISCRETE_BINS evenly-spaced edges
-    // and downsample the 256-stop continuous palette to match -- Anomaly's
-    // own boundaries/anomaly_colors are already exactly DISCRETE_BINS bins
-    // from the server (_diverging_bins), so only Climatology/Raw needs this.
-    if (boundaries.length === 2) {
-      const [vmin, vmax] = boundaries;
-      boundaries = Array.from({ length: DISCRETE_BINS + 1 }, (_, i) => vmin + (i / DISCRETE_BINS) * (vmax - vmin));
-      binColors = Array.from(
-        { length: DISCRETE_BINS },
-        (_, i) => palette[Math.round((i / (DISCRETE_BINS - 1)) * (palette.length - 1))],
-      );
+    // Over [vmin, vmax] (Climatology/Raw ship exactly that pair; Anomaly's
+    // symmetric diverging boundaries give it as [first, last]). Continuous = a
+    // smooth gradient with round-number axis ticks; Discrete = the palette as
+    // hard-stop bins (11 for a continuous palette in discrete mode, or a
+    // discrete table's own native level count) with ticks on the bin edges --
+    // both in the same legend element, chosen by the one Color-theme dropdown.
+    const vmin = boundaries[0];
+    const vmax = boundaries[boundaries.length - 1];
+    const span = vmax - vmin || 1;
+    let gradient, tickValues;
+    if (renderBinned) {
+      // When the data carries its own BoundaryNorm breaks (anomaly ships the
+      // full array), bins + ticks follow those EXACT breaks so the colorbar
+      // matches the pipeline and every tick sits on a break, not mid-bin.
+      // Raw/climatology ship only [vmin,vmax], so there fall back to even bins.
+      const edges = boundaries.length > 2
+        ? boundaries.slice()
+        : Array.from({ length: nBins + 1 }, (_, i) => vmin + (i / nBins) * span);
+      const bins = discreteBinColors(palette, edges.length - 1);
+      const steps = [];
+      for (let i = 0; i < bins.length; i++) {
+        const p0 = ((edges[i] - vmin) / span) * 100, p1 = ((edges[i + 1] - vmin) / span) * 100;
+        steps.push(`${bins[i]} ${p0.toFixed(2)}%`, `${bins[i]} ${p1.toFixed(2)}%`);
+      }
+      gradient = `linear-gradient(to right, ${steps.join(", ")})`;
+      // A tick on every break, thinned so a high-level scale doesn't crowd the axis.
+      tickValues = [];
+      const tickStep = edges.length > 13 ? 2 : 1;
+      for (let i = 0; i < edges.length; i += tickStep) tickValues.push(edges[i]);
+      if (tickValues[tickValues.length - 1] !== edges[edges.length - 1]) tickValues.push(edges[edges.length - 1]);
+      colorExpr = buildBoundaryColorExpression(edges, bins, fileEntry.scale);
+    } else {
+      // One round-number tick roughly every 70px of the bar's actual width, so
+      // a wide desktop colorbar gets a full axis and a narrow phone one stays
+      // legible (derived from rendered width, not a fixed count, Dylan 2026-10).
+      const barWidth = document.getElementById("ol-map").clientWidth || 700;
+      tickValues = niceTickValues(vmin, vmax, Math.max(5, Math.min(12, Math.round(barWidth / 70))));
+      gradient = `linear-gradient(to right, ${palette.join(", ")})`;
+      colorExpr = buildContinuousColorExpression(vmin, vmax, palette, fileEntry.scale);
     }
-    const nBins = boundaries.length - 1;
-    // Ticks sit AT the color breaks (the line between two swatches), not
-    // floating at a single point inside one bin -- nBins+1 boundary values,
-    // not nBins bin-center values (Dylan, 2026-09-29: "the colorbar ticks
-    // should be the color BREAKS, not a single point label for a whole
-    // bin"). Vertical, highest value at top -- the sidebar this lives in is
-    // narrow and tall, not wide.
-    const decimals = pickTickDecimals(boundaries);
-    // Horizontal colorbar above the map: bins ascend left-to-right (lowest
-    // value on the left, the standard horizontal-colorbar convention), so no
-    // reverse.
-    const swatches = binColors.map((color, i) => {
-      const lo = boundaries[i].toFixed(decimals);
-      const hi = boundaries[i + 1].toFixed(decimals);
-      return `<span class="ol-legend-swatch" style="background:${color}" title="${lo} to ${hi}"></span>`;
-    }).join("");
-    // One tick per boundary (nBins+1 total), each on the seam between the two
-    // swatches it separates: break i sits at i/nBins of the bar's width.
-    const ticks = Array.from({ length: nBins + 1 }, (_, i) => {
-      const left = (i / nBins) * 100;
-      return `<span class="ol-legend-tick" style="left:${left}%">${boundaries[i].toFixed(decimals)}</span>`;
-    }).join("");
+    // Tick POSITIONS stay on the native [vmin,vmax] scale; LABELS display in the
+    // canonical unit (x unitFactor, e.g. kg m-2 -> mm) to match the title + hover.
+    const canonicalTicks = tickValues.map((v) => v * unitFactor);
+    const decimals = pickTickDecimals(canonicalTicks);
+    const ticks = tickValues.map((v, k) =>
+      `<span class="ol-legend-tick" style="left:${(((v - vmin) / span) * 100).toFixed(2)}%">${canonicalTicks[k].toFixed(decimals)}</span>`
+    ).join("");
     legend.innerHTML = `<div class="ol-legend-label">${label}</div>` +
-      `<div class="ol-legend-scale-wrap"><div class="ol-legend-scale">${swatches}</div>` +
+      `<div class="ol-legend-scale-wrap"><div class="ol-legend-gradient" style="background:${gradient}"></div>` +
       `<div class="ol-legend-ticks">${ticks}</div></div>`;
-    colorExpr = buildBinnedColorExpression(boundaries, binColors, fileEntry.scale);
   }
 
   if (!layer) {
@@ -774,6 +1053,11 @@ async function updateInteractiveMapLayer() {
 // (so they read as seasons, not months), then the 12 calendar months follow
 // as compact single-letter stops that the play button animates through.
 const MONTH_LETTERS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+// Which calendar months each seasonal window spans, so selecting a season
+// lights up its months on the strip below. Reuses common.js's SEASON_MONTHS
+// (numeric months) -- a second top-level const of the same name here would
+// redeclare it in map.html's shared script scope and crash the page; the
+// month stops' data-period values are zero-padded, so pad on lookup.
 const PERIOD_PLAY_INTERVAL_MS = 850;
 
 function buildPeriodSlider(periods) {
@@ -796,8 +1080,26 @@ function buildPeriodSlider(periods) {
 }
 
 function updatePeriodSliderActive() {
-  document.querySelectorAll("#ol-period-track .ol-period-stop").forEach((b) =>
-    b.classList.toggle("active", b.dataset.period === olMapState.period));
+  const inSeason = new Set((SEASON_MONTHS[olMapState.period] || []).map((m) => String(m).padStart(2, "0")));
+  document.querySelectorAll("#ol-period-track .ol-period-stop").forEach((b) => {
+    b.classList.toggle("active", b.dataset.period === olMapState.period);
+    // Keep the two rows in sync: a selected seasonal window lights up the
+    // months it spans on the strip below.
+    if (b.classList.contains("ol-period-month")) {
+      b.classList.toggle("in-season", inSeason.has(b.dataset.period));
+    }
+  });
+}
+
+// Dim the month stops that have no COG for the current mode + year, so it's
+// clear which months are actually viewable (e.g. the current year ends mid-
+// year). Seasons are left alone. No-op in Climatology mode (all months exist).
+function updatePeriodAvailability() {
+  const months = new Set(playableMonths());
+  const dimInRaw = olMapState.mode !== "climatology";
+  document.querySelectorAll("#ol-period-track .ol-period-month").forEach((b) => {
+    b.classList.toggle("unavailable", dimInRaw && !months.has(b.dataset.period));
+  });
 }
 
 function setMapPeriod(period) {
@@ -819,12 +1121,26 @@ function stopPeriodPlayback() {
   }
 }
 
-// Animate through the 12 months only (not the seasonal windows). Starting from
-// a season jumps to January; reaching December loops back to January.
+// The month stops that actually have a COG for the current mode + year. In
+// Climatology mode every month has a baseline COG; in Raw/Anomaly mode a month
+// only counts if style.periods[month] carries this year's file -- otherwise
+// playing a short year (e.g. 2026 ends July) would step onto Aug-Dec, find no
+// file, and reset the year to the last fully-covered one (Dylan, 2026-10: "the
+// loop goes from 2026 to 2025-august when the data runs out").
+function playableMonths() {
+  const allMonths = Array.from(document.querySelectorAll("#ol-period-track .ol-period-month"))
+    .map((b) => b.dataset.period);
+  const style = olMapState.currentStyle;
+  if (!style || olMapState.mode === "climatology") return allMonths;
+  const fileKey = `${olMapState.mode}_${olMapState.year}`;
+  return allMonths.filter((m) => style.periods[m] && style.periods[m][fileKey]);
+}
+
+// Animate through the playable months only. Starting outside that set jumps to
+// its first month; reaching the last loops back to the first.
 function togglePeriodPlayback() {
   if (olMapState.playTimer) { stopPeriodPlayback(); return; }
-  const months = Array.from(document.querySelectorAll("#ol-period-track .ol-period-month"))
-    .map((b) => b.dataset.period);
+  const months = playableMonths();
   if (!months.length) return;
   let idx = months.indexOf(olMapState.period);
   if (idx === -1) { idx = 0; setMapPeriod(months[0]); }
@@ -852,7 +1168,7 @@ async function renderInteractiveMap() {
     // Without this, the period slider/year toggle/boundary checkbox stay
     // visible with nothing to control -- an empty control bar next to a map
     // that isn't there.
-    document.querySelector(".map-controls").style.display = "none";
+    setMapControlPanelsVisible(false);
     document.getElementById("ol-map-wrap").style.display = "none";
     document.getElementById("ol-map-empty").style.display = "block";
     document.getElementById("ol-map-empty").textContent = "No interactive map for this dataset yet.";
@@ -860,7 +1176,7 @@ async function renderInteractiveMap() {
     return;
   }
   document.getElementById("ol-region-table-wrap").style.display = "";
-  document.querySelector(".map-controls").style.display = "";
+  setMapControlPanelsVisible(true);
   const periods = sortedPeriods(Object.keys(style.periods));
   if (!olMapState.period || !periods.includes(olMapState.period)) {
     olMapState.period = periods.includes("DJFM") ? "DJFM" : periods[0];
@@ -941,6 +1257,14 @@ function copyViewLink() {
   if (olMapState.year !== null) params.set("year", String(olMapState.year));
   const url = `${window.location.origin}${window.location.pathname}#${params.toString()}`;
   copyToClipboard(url);
+  // The clipboard write is silent -- give the button brief visible feedback so
+  // the user knows it worked.
+  const btn = document.getElementById("ol-copy-view-btn");
+  if (btn) {
+    const original = btn.textContent;
+    btn.textContent = "Link copied";
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  }
 }
 
 async function init() {

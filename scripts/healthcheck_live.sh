@@ -12,16 +12,19 @@
 # NOTE: the dashboard's data is served from the custom domain
 # data.snowdrought.org (a Cloudflare R2 custom domain), NOT the bucket's raw
 # pub-*.r2.dev URL. NOAA's DNS filter sinkholes the entire r2.dev domain, so
-# the raw URL is unreachable from NOAA machines (Dylan's laptop included); the
-# custom domain resolves everywhere, so these R2 checks now run from anywhere.
-# The R2 checks still WARN (not FAIL) on a total connect failure, so a
-# transient outage doesn't produce a misleading hard failure.
+# the raw URL is unreachable from NOAA machines. The custom domain rides
+# normal Cloudflare CDN hostnames that the filter does not block, so these
+# checks should run from NOAA too -- but verify on the NOAA network after any
+# domain change (a brand-new domain can be briefly caught by a
+# newly-registered-domain filter category). The R2 checks still WARN (not
+# FAIL) on a total connect failure, so a transient outage doesn't produce a
+# misleading hard failure.
 #
 # Exit code: 0 if everything that could be checked passed, 1 if anything that
 # WAS reachable came back broken -- suitable for cron/CI.
 set -uo pipefail
 
-SITE_BASE="${SITE_BASE:-https://dylan-gaeta.github.io/snow-drought}"
+SITE_BASE="${SITE_BASE:-https://snowdrought.org}"
 R2_BASE="${R2_BASE:-https://data.snowdrought.org}"
 TIMEOUT="${TIMEOUT:-20}"
 PAGES=(index map explore seasonal compare data heatmaps classification gallery about)
@@ -50,7 +53,7 @@ done
 echo "== R2 data path ($R2_BASE) =="
 code="$(http "$R2_BASE/data/manifest.json" "$tmp/manifest.json")"
 if [ "$code" = "000" ]; then
-  warn "manifest.json unreachable -- can't resolve/connect to R2 (expected on Dylan's machine; run from CI/another network)"
+  warn "manifest.json unreachable -- can't resolve/connect to $R2_BASE (is the R2 custom domain Active? on NOAA, confirm it isn't caught by a newly-registered-domain filter)"
 elif [ "$code" != "200" ]; then
   bad "manifest.json -> HTTP $code (live site has no data -- re-run sync_cogs_to_r2.sh)"
 else
@@ -60,11 +63,16 @@ m = json.load(open(sys.argv[1]))
 cats = m.get("categories", {})
 n = sum(len(v) for v in cats.values())
 prod = resp = ""
+# Pick the first product/response that actually has a raster map (non-empty
+# "maps"): station datasets (SNOTEL, AmeriFlux, ...) carry an empty maps dict
+# and legitimately have no map_styles JSON, so sampling one would false-FAIL.
 for cat in m.get("category_order", list(cats)):
     for p, responses in (cats.get(cat) or {}).items():
-        rs = list(responses)
-        if rs:
-            prod, resp = p, rs[0]
+        for r, entry in responses.items():
+            if entry.get("maps"):
+                prod, resp = p, r
+                break
+        if prod:
             break
     if prod:
         break

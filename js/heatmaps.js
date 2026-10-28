@@ -1,13 +1,21 @@
 // Heatmap page (heatmaps.html). Product x time standardized-anomaly matrix,
 // computed dynamically from the same data every other chart on this
-// dashboard uses -- not a static image. "monthly" is a fixed special case
-// (direct per-month sigma, the most recent 12 calendar months available,
-// for comparing products along one shared recent timeline). Every other
-// family is "this window, by year" -- the same season/month windows and
-// the same computeWindowValue() aggregation the interactive map's period
-// select and the summary table already use, so a heatmap row and the
-// matching map/table value are always computed the same way.
-const HEATMAP_FAMILIES = { monthly: { label: "Monthly anomalies (most recent 12 months)" } };
+// dashboard uses -- not a static image. The "wy_<year>" families are a fixed
+// special case (direct per-month sigma across one water year, Oct-Sep, for
+// comparing products along one shared recent timeline). Every other family is
+// "this window, by year" -- the same season/month windows and the same
+// computeWindowValue() aggregation the interactive map's period select and the
+// summary table already use, so a heatmap row and the matching map/table value
+// are always computed the same way.
+
+// Water-year monthly families, newest first, back to this floor -- a per-month
+// heatmap older than ~15 years is rarely the question on a current-conditions
+// dashboard, and the list stays scannable.
+const HEATMAP_WATER_YEAR_FLOOR = 2010;
+const HEATMAP_FAMILIES = {};
+for (let wy = currentWaterYear(); wy >= HEATMAP_WATER_YEAR_FLOOR; wy--) {
+  HEATMAP_FAMILIES[`wy_${wy}`] = { label: `WY${wy} (Oct ${wy - 1} – Sep ${wy})`, waterYear: wy };
+}
 SEASON_ORDER.forEach((key) => {
   HEATMAP_FAMILIES[`window_${key}`] = { label: `${key} (${SEASON_LABELS[key]}), by year`, window: key };
 });
@@ -20,10 +28,10 @@ MONTH_NAMES.forEach((name, i) => {
 // for a wide column count -- see .heatmap-chart-scroll -- so unlike Time
 // Series' single continuous line, there's no "solid smear" problem with
 // defaulting to the full history here). Only meaningful for the "by year"
-// families; "monthly" is always a fixed most-recent-12-months window
-// (Dylan, 2026-10-01: "you should be able to specify the start year from a
-// dropdown menu for these heatmaps").
-const heatmapState = { family: "monthly", category: "all", region: "ALL", startYear: null };
+// families; the "wy_<year>" water-year families are always a fixed Oct-Sep
+// window, so the start-year control doesn't apply to them. Default to the
+// current water year.
+const heatmapState = { family: `wy_${currentWaterYear()}`, category: "all", region: "ALL", startYear: null };
 
 function initHeatmapStartYearControl() {
   const select = document.getElementById("heatmap-start-year-select");
@@ -47,13 +55,13 @@ function initHeatmapStartYearControl() {
   });
 }
 
-// "monthly" is always a fixed most-recent-12-months window -- startYear has
-// no effect on it, so disable the control rather than leave it silently
-// inert (picking a year and seeing nothing change reads as broken).
+// The water-year families are a fixed Oct-Sep window -- startYear has no
+// effect on them, so disable the control rather than leave it silently inert
+// (picking a year and seeing nothing change reads as broken).
 function updateStartYearAvailability() {
   const select = document.getElementById("heatmap-start-year-select");
   if (!select) return;
-  select.disabled = heatmapState.family === "monthly";
+  select.disabled = heatmapState.family.startsWith("wy_");
 }
 
 function initHeatmaps() {
@@ -128,15 +136,18 @@ function heatmapPairs(category, family) {
   cats.forEach((cat) => {
     const products = manifest.categories[cat] || {};
     for (const [product, responses] of Object.entries(products)) {
+      // Point-observation networks are multisite point averages, not gridded
+      // area means -- never a heatmap row (see POINT_NETWORK_PRODUCTS, common.js).
+      if (POINT_NETWORK_PRODUCTS.has(product)) continue;
       for (const [response, entry] of Object.entries(responses)) {
-        // "monthly" reads each stored per-month sigma directly -- no
-        // aggregation involved, so it's fine even for products (e.g. NEON
+        // The water-year families read each stored per-month sigma directly --
+        // no aggregation involved, so they're fine even for products (e.g. NEON
         // NEE) with no established multi-month aggregation rule. Every other
         // family aggregates across a season/month window via
         // computeWindowValue(), same as js/summary.js -- exclude those
         // products here too, for the same reason summary.js does (see its
         // own "no established aggregation rule" comment).
-        if (family !== "monthly" && !entry.aggregation) continue;
+        if (!family.startsWith("wy_") && !entry.aggregation) continue;
         pairs.push({ product, response, category: cat });
       }
     }
@@ -144,26 +155,14 @@ function heatmapPairs(category, family) {
   return pairs;
 }
 
-// Every product's own record_end differs; derive the shared 12-month window
-// from whichever record extends furthest, rather than a hardcoded date.
-function latestRecordEndMonth() {
-  let latest = null;
-  for (const products of Object.values(manifest.categories)) {
-    for (const responses of Object.values(products)) {
-      for (const entry of Object.values(responses)) {
-        if (entry.record_end && (!latest || entry.record_end > latest)) latest = entry.record_end;
-      }
-    }
-  }
-  return latest; // "YYYY-MM-DD"
-}
-
 async function renderHeatmap() {
   const chart = document.getElementById("heatmap-chart");
   const titleEl = document.getElementById("heatmap-title");
   if (titleEl) {
     const cat = heatmapState.category === "all" ? "All products" : categoryLabelWithIcon(heatmapState.category);
-    titleEl.textContent = `${cat} — ${regionLabelFor(heatmapState.region)}`;
+    const fam = HEATMAP_FAMILIES[heatmapState.family];
+    const when = fam ? ` — ${fam.label}` : "";
+    titleEl.textContent = `${cat}${when} — ${regionLabelFor(heatmapState.region)}`;
   }
   const pairs = heatmapPairs(heatmapState.category, heatmapState.family);
   if (pairs.length === 0) {
@@ -189,16 +188,12 @@ async function renderHeatmapUnsafe(chart, pairs) {
   );
 
   let xLabels, computeRow;
-  if (heatmapState.family === "monthly") {
-    const endDate = latestRecordEndMonth();
-    const endYear = parseInt(endDate.slice(0, 4), 10);
-    const endMonth = parseInt(endDate.slice(5, 7), 10);
+  if (heatmapState.family.startsWith("wy_")) {
+    const wy = HEATMAP_FAMILIES[heatmapState.family].waterYear;
+    // One water year: Oct (wy-1) through Sep (wy).
     const months = [];
-    for (let i = 11; i >= 0; i--) {
-      let m = endMonth - i, y = endYear;
-      if (m <= 0) { m += 12; y -= 1; }
-      months.push({ year: y, month: m });
-    }
+    for (let m = WATER_YEAR_START_MONTH; m <= 12; m++) months.push({ year: wy - 1, month: m });
+    for (let m = 1; m < WATER_YEAR_START_MONTH; m++) months.push({ year: wy, month: m });
     // Two-row tick label (month above, year below) instead of one rotated
     // "Jan 2026" string -- easier to read at the narrow per-column width a
     // 12-column heatmap has, and each column here really is its own
@@ -206,19 +201,25 @@ async function renderHeatmapUnsafe(chart, pairs) {
     xLabels = months.map(({ year, month }) => `${MONTH_NAMES[month - 1].slice(0, 3)}<br>${year}`);
     computeRow = (data) => {
       const region = data.regions[heatmapState.region];
-      if (!region) return months.map(() => null);
+      if (!region) return { z: months.map(() => null), hasData: false };
       // Flip sign so red always means "more stress" and blue always means
       // "less stress" on every row, regardless of each variable's own raw
       // sign convention (a positive temperature anomaly IS the stress
-      // direction, but a positive snowpack anomaly is relief, the opposite)
-      // -- same drier_is_high-driven flip the Compare view's "By category"
-      // mode already applies for the same reason (see about.html).
+      // direction, but a positive snowpack anomaly is less stress, the opposite)
+      // -- same drier_is_high-driven flip the Summary table applies; the Compare
+      // view instead keeps σ native-direction (positive = above that variable's
+      // own baseline, not necessarily stress), see about.html.
       const sign = data.drier_is_high ? 1 : -1;
-      return months.map(({ year, month }) => {
+      let hasData = false;
+      const z = months.map(({ year, month }) => {
         const dateStr = `${year}-${String(month).padStart(2, "0")}-01`;
         const idx = region.dates.indexOf(dateStr);
-        return idx === -1 ? null : sign * region.sigma[idx];
+        if (idx === -1) return null;
+        hasData = true; // the product has a value this month even if sigma is floored out
+        const s = monthlyStressSigma(data, region, idx);
+        return s === null ? null : sign * s;
       });
+      return { z, hasData };
     };
   } else {
     const windowKey = HEATMAP_FAMILIES[heatmapState.family].window;
@@ -229,13 +230,17 @@ async function renderHeatmapUnsafe(chart, pairs) {
     xLabels = years.map(String);
     computeRow = (data) => {
       const region = data.regions[heatmapState.region];
-      if (!region) return years.map(() => null);
+      if (!region) return { z: years.map(() => null), hasData: false };
       // Same stress-direction sign flip as the "monthly" branch above.
       const sign = data.drier_is_high ? 1 : -1;
-      return years.map((year) => {
+      let hasData = false;
+      const z = years.map((year) => {
         const result = computeWindowValue(data, region, windowKey, year);
-        return result ? sign * result.sigma : null;
+        if (!result) return null;
+        hasData = true; // the window has data even if its sigma is floored out
+        return result.sigma === null ? null : sign * result.sigma;
       });
+      return { z, hasData };
     };
   }
 
@@ -249,8 +254,12 @@ async function renderHeatmapUnsafe(chart, pairs) {
   // page's coverage chart for the same reason.
   [...pairs].reverse().forEach((pair, i) => {
     const data = dataList[pairs.length - 1 - i];
-    const row = computeRow(data);
-    if (row.every((v) => v === null)) return;
+    const { z: row, hasData } = computeRow(data);
+    // Keep a product that has data in the window but whose sigma is entirely
+    // floored out (e.g. a <8-year record like TROPOMI, below MIN_BASELINE_
+    // YEARS_SIGMA) -- render it as a gray no-sigma row rather than letting it
+    // silently vanish. Drop only products genuinely absent from the selection.
+    if (!hasData) return;
     yLabels.push(`${pair.product} ${pair.response}`);
     z.push(row);
     rowCategories.push(pair.category);
@@ -260,10 +269,14 @@ async function renderHeatmapUnsafe(chart, pairs) {
     return;
   }
 
-  // Symmetric diverging range so 0 sits dead-center (white) and the two ends
-  // are equal-magnitude; the colorbar ends are then labeled by direction.
-  const finite = z.flat().filter((v) => Number.isFinite(v));
-  const zAbs = finite.length ? Math.max(...finite.map((v) => Math.abs(v))) : 1;
+  // Fixed symmetric diverging range (not auto-scaled to the matrix max): a
+  // cell's color then means the same z-score on every heatmap, and one genuine
+  // extreme -- a real fire or soil-moisture record can run past +/-10 -- no
+  // longer stretches the scale and washes every other cell to white. Values
+  // beyond the bound saturate the end color; the true z is in the hover. (A
+  // dormant/degenerate cell is no-data, not a spike -- see
+  // common.js::DORMANT_SD_FRACTION.)
+  const zAbs = 4;
 
   // In the combined "all products" view, separate the stacked category groups
   // with a black rule and label each section (rotated) on the right.
@@ -291,39 +304,34 @@ async function renderHeatmapUnsafe(chart, pairs) {
 
   const trace = {
     x: xLabels, y: yLabels, z, type: "heatmap",
-    // NCL precip_diff_12lev / ColorBrewer BrBG, the full 13-stop spectrum (via
-    // the cmaps package) -- the same ramp the map anomaly layers and the
-    // snowdrought.org welcome border use, so the whole site reads one palette
-    // rather than just the two teal/brown extremes. Red stays reserved for the
-    // "no data" state. White is pinned exactly at zero via zmid, so the
-    // midpoint is neutral rather than BrBG's natural pale-tan. Order: blue
-    // (relief) low -> white (neutral) -> brown (stress) high.
-    colorscale: [
-      [0, "#023858"], [0.0833, "#0570b0"], [0.1667, "#6eaac8"], [0.25, "#53bd9f"],
-      [0.3333, "#99f0b2"], [0.4167, "#cdffcd"], [0.5, "#ffffff"], [0.5833, "#fff5ba"],
-      [0.6667, "#f5e09e"], [0.75, "#f5cd84"], [0.8333, "#e1a564"], [0.9167, "#cd853f"],
-      [1, "#b66a28"],
-    ],
+    // NCL MPL_BrBG reversed: teal (less stress) low -> brown (more stress) high,
+    // with pure white pinned at zero (the MPL_ table is off-white there). Cells
+    // past +/-zAbs take the end colors, so the end ticks read "<=" / ">=".
+    colorscale: heatmapColorscale(),
     zmin: -zAbs, zmax: zAbs, zmid: 0,
     // Horizontal colorbar ABOVE the heatmap (the matrix can be tall, and a
-    // right-side vertical bar forced scrolling to see its low end). The two
-    // ends are labeled by direction -- less stress / more stress -- since
-    // bare sigma numbers read as cryptic; exact values are in the hover.
+    // right-side vertical bar forced scrolling to see its low end).
     colorbar: {
       orientation: "h",
       x: 0.5, xanchor: "center",
       y: 1.04, yanchor: "bottom",
       len: 0.55, thickness: 16,
       tickmode: "array",
-      tickvals: [-zAbs, 0, zAbs],
-      ticktext: ["Stress ↓", "0", "Stress ↑"],
+      tickvals: sigmaTicks(zAbs),
+      ticktext: sigmaTicks(zAbs).map((v) => (v === -zAbs ? `≤−${zAbs}` : v === zAbs ? `≥+${zAbs}`
+        : v > 0 ? `+${v}` : v < 0 ? `−${-v}` : "0")),
       tickfont: { size: 12 },
-      title: { text: "Standardized anomaly (σ)", side: "top", font: { size: 13 } },
+      title: { text: "← Less stress · Standardized anomaly (σ) · More stress →", side: "top", font: { size: 13 } },
     },
     hoverongaps: false,
   };
   const layout = {
     margin: { t: 90, r: heatmapState.category === "all" ? 48 : 20, b: 60, l: 180 },
+    // Gray fills the plot behind the cells, so a missing (null) cell reads as
+    // gray "no data" instead of falling through to white -- which the diverging
+    // scale also uses for a neutral sigma=0, a dangerous look-alike on a drought
+    // heatmap. hoverongaps:false keeps gaps non-interactive.
+    plot_bgcolor: "#c8c8c8",
     xaxis: { side: "bottom", tickangle: 0 },
     yaxis: { automargin: true },
     font: { family: "Source Sans Pro, sans-serif", size: 12 },
@@ -337,7 +345,11 @@ async function renderHeatmapUnsafe(chart, pairs) {
   // wide heatmap illegible on mobile. Force a real per-column width and let
   // .heatmap-chart-scroll (css/style.css) handle the horizontal scroll
   // instead, same as the Summary Table's own too-wide-for-mobile table.
-  chart.style.minWidth = `${Math.max(600, xLabels.length * 45 + 220)}px`;
+  // On phones let the heatmap fit the viewport so its colorbar stays on-screen,
+  // rather than forcing a wide horizontal scroll that pushes the sigma scale off
+  // the right edge (it reappears as a stray navy sliver otherwise).
+  const isNarrow = typeof window !== "undefined" && window.innerWidth < 600;
+  chart.style.minWidth = isNarrow ? "0" : `${Math.max(600, xLabels.length * 45 + 220)}px`;
   // Plotly.newPlot() appends its own plot div into `chart` but doesn't touch
   // pre-existing sibling elements -- the "Computing..." <p> set above the
   // fetch would otherwise sit there forever, untouched, next to the finished
@@ -347,3 +359,19 @@ async function renderHeatmapUnsafe(chart, pairs) {
 }
 
 loadManifest().then(initHeatmaps);
+
+// Heatmap colorscale: NCL MPL_BrBG reversed (teal low = less stress, brown high
+// = more stress) with pure white at the midpoint.
+function heatmapColorscale() {
+  const colors = NCL_COLORMAPS.diverging.MPL_BrBG.colors.slice().reverse();
+  if (colors.length % 2 === 0) throw new Error("heatmapColorscale needs an odd number of stops to center white");
+  colors[(colors.length - 1) / 2] = "#ffffff";
+  return colors.map((color, i) => [i / (colors.length - 1), color]);
+}
+
+// One colorbar tick per whole sigma across the fixed symmetric range.
+function sigmaTicks(zAbs) {
+  const ticks = [];
+  for (let v = -zAbs; v <= zAbs; v++) ticks.push(v);
+  return ticks;
+}

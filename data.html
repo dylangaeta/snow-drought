@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Regional summary table -- every product, one month/season/year at a time -- for the Western US snow drought dashboard.">
-<title>Summary Table &mdash; 2025-2026 Western US Climate and Snow Drought Explorer</title>
+<title>Summary Statistics &mdash; 2025-2026 Western US Climate and Snow Drought Explorer</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg stroke='%23162e51' stroke-width='2' stroke-linecap='round'%3E%3Cline x1='12' y1='2' x2='12' y2='22'/%3E%3Cline x1='4' y1='6' x2='20' y2='18'/%3E%3Cline x1='4' y1='18' x2='20' y2='6'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&family=Merriweather:wght@700;900&display=swap" rel="stylesheet">
@@ -20,22 +20,68 @@
       <small>Unofficial snow drought dashboard and data explorer. For educational purposes only</small>
     </a></h1>
     <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
-    <nav class="site-nav" id="site-nav">
-      <a href="home.html">Home</a>
-      <a href="map.html">Map</a>
-      <a href="explore.html">Time Series</a>
-      <a href="seasonal.html">Seasonal Cycle</a>
-      <a href="sib4.html">SiB4</a>
-      <a href="data.html" class="active">Summary Table</a>
-      <a href="heatmaps.html">Heatmap</a>
-      <a href="classification.html">Classification</a>
-      <a href="gallery.html">Figure Gallery</a>
-      <a href="about.html">About</a>
+        <nav class="site-nav" id="site-nav">
+      <div class="nav-primary">
+        <a href="home.html">Home</a>
+        <a href="map.html">Map</a>
+        <a href="explore.html">Time Series</a>
+        <a href="seasonal.html">Seasonal Cycle</a>
+        <a href="compare.html">Compare</a>
+      </div>
+      <div class="nav-secondary">
+        <a href="sites.html">Sites</a>
+        <a href="snotel.html">SNOTEL</a>
+        <a href="sib4.html">SiB4</a>
+        <a href="data.html" class="active">Summary Statistics</a>
+        <a href="classification.html">Classification</a>
+        <a href="gallery.html">Figure Gallery</a>
+        <a href="about.html">About</a>
+      </div>
     </nav>
   </div>
 </header>
 
 <main>
+
+  <section id="heatmaps">
+    <h2>Anomaly heatmaps by product and time</h2>
+    <p class="finding-note">Standardized anomaly (&sigma;) per product: one
+      row per product/response, one column per month or year. Each row is
+      sign-flipped to its own variable's stress direction (e.g. low
+      snowpack is the stress direction, not high), so brown always means more stress
+      and teal always means less stress, regardless of the variable's raw sign
+      convention.</p>
+    <p class="finding-note">Every row is standardized against that product's
+      <em>own</em> baseline (the month's or season's anomaly divided by the
+      standard deviation of that same month or season across the product's
+      baseline years), so a given
+      &sigma; is the same number of standard deviations from normal in each
+      product's own climatology &mdash; comparable across rows in that sense.
+      But baselines differ in period and length: short-record products (e.g.
+      SMAP, GRACE) reference a shorter climate epoch and estimate that standard
+      deviation from fewer years, so read a row's color as its standing within
+      its own history, not as a strict cross-product ranking.</p>
+    <div class="heatmap-legend-key">
+      <span><span class="heatmap-legend-swatch" style="background:#563105;"></span> More stress</span>
+      <span><span class="heatmap-legend-swatch" style="background:#003c30;"></span> Less stress</span>
+      <span><span class="heatmap-legend-swatch" style="background:#c8c8c8;"></span> No data</span>
+    </div>
+    <div class="heatmap-layout">
+      <nav class="category-tabs" id="heatmap-category-tabs" aria-label="Category"></nav>
+
+      <div>
+        <div class="selector-row">
+          <select id="heatmap-family-select" aria-label="Heatmap family"></select>
+          <select id="heatmap-region-select" aria-label="Region"></select>
+          <label class="boundary-toggle" for="heatmap-start-year-select">Start year
+            <select id="heatmap-start-year-select" aria-label="Start year"></select>
+          </label>
+        </div>
+        <h3 id="heatmap-title" class="figure-title"></h3>
+        <div class="heatmap-chart-scroll"><div id="heatmap-chart"></div></div>
+      </div>
+    </div>
+  </section>
 
   <section class="panel" id="summary">
     <h2>Regional summary vs. fixed calendar-month climatology</h2>
@@ -43,14 +89,16 @@
       Computed on demand from the same mean-centered anomaly values as
       <a href="explore.html">Time Series</a>. Color = physical stress
       direction, not raw sign:
-      <span style="color:#955910; font-weight:600;">stress</span>
+      <span style="color:#955910; font-weight:600;">more stress</span>
       (drier/hotter/less productive) vs.
-      <span style="color:#0570b0; font-weight:600;">relief</span>.
+      <span style="color:#0570b0; font-weight:600;">less stress</span>.
       Native indices (SPI/SPEI/EDDI/PDSI/ForDRI/ESI) are already a
       fixed-timescale statistic (e.g. SPI-03 = trailing 3 months), so a
       season window shows the reading "as of &lt;month&gt;" instead of
-      re-aggregating it. Percent-of-normal is omitted for native indices
-      and near-zero baselines (unstable).
+      re-aggregating it. Percent of mean is shown only for physical amounts
+      (not temperature-like quantities, indices, net carbon exchange, anomaly
+      products, fire or drought-category extent) and only where the
+      year-to-year spread over the baseline is no larger than the baseline mean.
     </p>
     <div class="selector-row">
       <select id="summary-region-group-select" aria-label="Regions">
@@ -62,9 +110,10 @@
       <select id="summary-year-select" aria-label="Year"></select>
       <select id="summary-value-select" aria-label="Value to display">
         <option value="sigma" selected>Standardized anomaly (&sigma;)</option>
+        <option value="anomaly_raw">Anomaly (raw units)</option>
         <option value="percentile">Percentile</option>
         <option value="raw">Raw units</option>
-        <option value="percent_of_normal">Percent of normal</option>
+        <option value="percent_of_normal">Percent of mean</option>
         <option value="rank">Rank on record</option>
       </select>
     </div>
@@ -86,9 +135,8 @@
 <footer class="site-footer">
   <div class="footer-inner">
     <p>
-      Source: snowdrought-carbon (private research codebase, NOAA
-      Global Monitoring Laboratory &middot; Cooperative Institute for
-      Research in Environmental Sciences).
+      NOAA Global Monitoring Laboratory &middot; Cooperative Institute for
+      Research in Environmental Sciences.
     </p>
     <p>
       See <a href="about.html">About</a> for methodology, references, and
@@ -98,6 +146,8 @@
 </footer>
 
 <script src="js/common.js"></script>
+<script src="js/ncl-colormaps.js"></script>
+<script src="js/heatmaps.js"></script>
 <script src="js/summary.js"></script>
 </body>
 </html>

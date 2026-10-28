@@ -19,17 +19,23 @@
       <small>Unofficial snow drought dashboard and data explorer. For educational purposes only</small>
     </a></h1>
     <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
-    <nav class="site-nav" id="site-nav">
-      <a href="home.html">Home</a>
-      <a href="map.html">Map</a>
-      <a href="explore.html">Time Series</a>
-      <a href="seasonal.html">Seasonal Cycle</a>
-      <a href="sib4.html">SiB4</a>
-      <a href="data.html">Summary Table</a>
-      <a href="heatmaps.html">Heatmap</a>
-      <a href="classification.html">Classification</a>
-      <a href="gallery.html" class="active">Figure Gallery</a>
-      <a href="about.html">About</a>
+        <nav class="site-nav" id="site-nav">
+      <div class="nav-primary">
+        <a href="home.html">Home</a>
+        <a href="map.html">Map</a>
+        <a href="explore.html">Time Series</a>
+        <a href="seasonal.html">Seasonal Cycle</a>
+        <a href="compare.html">Compare</a>
+      </div>
+      <div class="nav-secondary">
+        <a href="sites.html">Sites</a>
+        <a href="snotel.html">SNOTEL</a>
+        <a href="sib4.html">SiB4</a>
+        <a href="data.html">Summary Statistics</a>
+        <a href="classification.html">Classification</a>
+        <a href="gallery.html" class="active">Figure Gallery</a>
+        <a href="about.html">About</a>
+      </div>
     </nav>
   </div>
 </header>
@@ -46,12 +52,12 @@
     </div>
 
     <div class="explorer-layout">
-      <nav class="category-tabs" id="category-tabs" aria-label="Dataset category"></nav>
+      <div class="picker-pivot" id="picker-pivot" role="group" aria-label="Browse by dataset or by variable"></div>
 
       <div>
         <div class="selector-row">
-          <select id="product-select" aria-label="Product"></select>
-          <select id="response-select" aria-label="Variable"></select>
+          <label class="select-field">Dataset <select id="product-select" aria-label="Product"></select></label>
+          <label class="select-field">Variable <select id="response-select" aria-label="Variable"></select></label>
         </div>
         <div id="region-toggle" style="display:none;"></div>
         <div class="product-meta" id="product-meta"></div>
@@ -124,9 +130,8 @@
 <footer class="site-footer">
   <div class="footer-inner">
     <p>
-      Source: snowdrought-carbon (private research codebase, NOAA
-      Global Monitoring Laboratory &middot; Cooperative Institute for
-      Research in Environmental Sciences).
+      NOAA Global Monitoring Laboratory &middot; Cooperative Institute for
+      Research in Environmental Sciences.
     </p>
     <p>
       See <a href="about.html">About</a> for methodology, references, and

@@ -20,17 +20,23 @@
       <small>Unofficial snow drought dashboard and data explorer. For educational purposes only</small>
     </a></h1>
     <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
-    <nav class="site-nav" id="site-nav">
-      <a href="home.html">Home</a>
-      <a href="map.html">Map</a>
-      <a href="explore.html">Time Series</a>
-      <a href="seasonal.html">Seasonal Cycle</a>
-      <a href="sib4.html">SiB4</a>
-      <a href="data.html">Summary Table</a>
-      <a href="heatmaps.html">Heatmap</a>
-      <a href="classification.html" class="active">Classification</a>
-      <a href="gallery.html">Figure Gallery</a>
-      <a href="about.html">About</a>
+        <nav class="site-nav" id="site-nav">
+      <div class="nav-primary">
+        <a href="home.html">Home</a>
+        <a href="map.html">Map</a>
+        <a href="explore.html">Time Series</a>
+        <a href="seasonal.html">Seasonal Cycle</a>
+        <a href="compare.html">Compare</a>
+      </div>
+      <div class="nav-secondary">
+        <a href="sites.html">Sites</a>
+        <a href="snotel.html">SNOTEL</a>
+        <a href="sib4.html">SiB4</a>
+        <a href="data.html">Summary Statistics</a>
+        <a href="classification.html" class="active">Classification</a>
+        <a href="gallery.html">Figure Gallery</a>
+        <a href="about.html">About</a>
+      </div>
     </nav>
   </div>
 </header>
@@ -42,10 +48,18 @@
       <h2>Snow drought classification by winter type</h2>
       <p class="finding-note">
         Dierauer, Allen &amp; Whitfield (2019, <em>Water Resources
-        Research</em>) classification: dry / warm-and-dry / warm snow
-        drought, by precipitation and temperature departure. One point per
-        DJFM winter (1991&ndash;2026). Color = classification (temperature
-        &times; precipitation &times; snowpack), independent of axes shown.
+        Research</em>) classification. A winter is a <strong>snow drought</strong>
+        when its annual peak SWE falls below the climatological mean peak SWE
+        (this flags more than half of winters, as in the paper). Each
+        snow-drought winter is then typed by its Oct&ndash;Apr drivers, keyed on
+        precipitation: <strong>warm</strong> (precipitation at or above normal),
+        <strong>dry</strong> (precipitation
+        deficit without above-normal warmth), or <strong>warm &amp; dry</strong>
+        (precipitation deficit with above-normal temperature). One point per
+        winter (1991&ndash;2026); by default x = temperature, y = peak SWE and
+        color = precipitation, with the classification in each point's hover
+        text. The table below lists
+        every winter's values for the selected region.
       </p>
       <div class="selector-row">
         <label class="select-field">Region <select id="quadrant-region-select" aria-label="Region"></select></label>
@@ -54,6 +68,14 @@
         <label class="select-field">Color <select id="quadrant-color-select" aria-label="Color by"></select></label>
       </div>
       <div id="quadrant-chart"></div>
+
+      <h3 class="figure-title" id="quadrant-table-heading">Classification by winter</h3>
+      <div class="table-scroll">
+        <table class="headline-table" id="quadrant-table">
+          <thead><tr><th>Winter</th><th>Classification</th><th>Temp anomaly (&deg;C)</th><th>Precip anomaly (mm)</th><th>Peak SWE anomaly (mm)</th></tr></thead>
+          <tbody id="quadrant-table-body"></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -62,9 +84,8 @@
 <footer class="site-footer">
   <div class="footer-inner">
     <p>
-      Source: snowdrought-carbon (private research codebase, NOAA
-      Global Monitoring Laboratory &middot; Cooperative Institute for
-      Research in Environmental Sciences).
+      NOAA Global Monitoring Laboratory &middot; Cooperative Institute for
+      Research in Environmental Sciences.
     </p>
     <p>
       See <a href="about.html">About</a> for methodology, references, and
@@ -74,6 +95,7 @@
 </footer>
 
 <script src="js/common.js"></script>
+<script src="js/ncl-colormaps.js"></script>
 <script src="js/classification.js"></script>
 </body>
 </html>

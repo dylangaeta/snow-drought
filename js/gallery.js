@@ -92,6 +92,9 @@ function renderGalleryMap(entry) {
   empty.style.display = "none";
   const url = assetUrl(`figures/maps/${relPath}`);
   const img = document.getElementById("gallery-map-img");
+  // A manifested figure can still 404 on R2; fall back to the empty state
+  // rather than leaving a broken-image icon.
+  img.onerror = () => { wrap.style.display = "none"; empty.style.display = "block"; };
   img.src = url;
   img.alt = `${pickerState.product} ${pickerState.response}, ${galleryFigureLabel(figureKey)}, ${document.getElementById("gallery-period-select").selectedOptions[0].textContent}`;
   const download = document.getElementById("gallery-map-download");
@@ -190,6 +193,7 @@ function renderGalleryRegionFigure(ids, figuresByRegion) {
   empty.style.display = "none";
   const url = assetUrl(`figures/${ids.figDir}/${relPath}`);
   const img = document.getElementById(ids.img);
+  img.onerror = () => { wrap.style.display = "none"; empty.style.display = "block"; };
   img.src = url;
   img.alt = `${pickerState.product} ${pickerState.response}, ${galleryRegionFigureLabel(figureKey)}, ${manifest.region_labels[region] || region}`;
   const download = document.getElementById(ids.download);
@@ -273,6 +277,7 @@ function renderGalleryHeatmap() {
   empty.style.display = "none";
   const url = assetUrl(`figures/heatmaps/${filename}`);
   const img = document.getElementById("gallery-heatmap-img");
+  img.onerror = () => { wrap.style.display = "none"; empty.style.display = "block"; };
   img.src = url;
   img.alt = `${family.label}, ${category === "all" ? "all products" : manifest.category_labels[category]}`;
   const download = document.getElementById("gallery-heatmap-download");

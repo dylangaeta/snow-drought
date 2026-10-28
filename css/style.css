@@ -28,7 +28,6 @@
 
   --radius-sm: 6px;
   --radius-md: 10px;
-  --legend-bar-width: 22px;
   --shadow-sm: 0 1px 2px rgba(2, 56, 88, 0.06), 0 1px 1px rgba(2, 56, 88, 0.04);
   --shadow-md: 0 4px 12px rgba(2, 56, 88, 0.10), 0 1px 3px rgba(2, 56, 88, 0.08);
   --shadow-focus: 0 0 0 3px rgba(58, 134, 188, 0.28);
@@ -97,7 +96,7 @@ a:hover { color: var(--navy); }
   margin-left: 0.4rem;
   padding: 0.1em 0.5em;
   font-family: var(--font-body);
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   /* navy-on-gold measured 3.79:1, below WCAG AA's 4.5:1 for this font size.
@@ -112,31 +111,48 @@ a:hover { color: var(--navy); }
 .site-header .wordmark small {
   display: block;
   font-family: var(--font-body);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 400;
   color: #b6c2d9;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   margin-top: 2px;
 }
+/* Two-tier nav: primary views (Home/Map/Time Series/Seasonal/Compare) on the
+   top row, the specialized and reference pages on a smaller muted row below,
+   both right-aligned beside the wordmark. Twelve items never fit one flat
+   inline row on a normal desktop, and splitting by role reads better than a
+   ragged wrap. */
+.site-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+}
+.nav-primary, .nav-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0 1.4rem;
+}
+.nav-secondary {
+  padding-top: 0.3rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
 .site-nav a {
   color: #dce4f0;
   text-decoration: none;
-  margin-left: 1.5rem;
-  font-size: 0.95rem;
   font-weight: 600;
-  padding-bottom: 4px;
+  padding-bottom: 3px;
   border-bottom: 3px solid transparent;
 }
-.site-nav a:first-child { margin-left: 0; }
+.nav-primary a { font-size: 1rem; }
+.nav-secondary a { font-size: 0.85rem; color: #aebbd2; }
 .site-nav a:hover, .site-nav a.active {
   color: #fff;
   border-bottom-color: var(--gold);
 }
 
-/* 10 nav items (Home + one per figure type) don't fit a flat inline row past
-   a fairly wide viewport -- collapse into a toggled dropdown below that
-   point instead of letting it wrap raggedly across 2-3 lines. */
 .nav-toggle {
   display: none;
   width: 34px;
@@ -162,18 +178,24 @@ a:hover { color: var(--navy); }
   .site-nav {
     display: none;
     flex-basis: 100%;
-    flex-direction: column;
-    gap: 0.1rem;
+    align-items: stretch;
+    gap: 0;
     margin-top: 0.6rem;
     padding-top: 0.6rem;
     border-top: 1px solid rgba(255, 255, 255, 0.15);
   }
   .site-nav.open { display: flex; }
+  /* Collapse both tiers into one stacked list -- display:contents drops the
+     tier wrappers so every link becomes a direct column child. */
+  .nav-primary, .nav-secondary {
+    display: contents;
+  }
   .site-nav a {
-    margin-left: 0;
     padding: 0.6rem 0.2rem;
+    font-size: 0.95rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
+  .nav-secondary a { color: #dce4f0; }
   .site-nav a.active { border-bottom-color: var(--gold); }
 }
 
@@ -192,6 +214,11 @@ main section[id] { scroll-margin-top: 5rem; }
 
 .summary-table-scroll {
   overflow-x: auto;
+  /* Cap the height and scroll vertically so the sticky thead actually pins while
+     paging through a long product list (a sticky header only sticks inside a
+     scroll container with a bounded height). */
+  max-height: 78vh;
+  overflow-y: auto;
   /* Horizontal counterpart of .compare-legend's fade cue, same rationale:
      the numeric region columns run off the right edge on mobile (844px
      table in a 269px wrapper, confirmed 2026-09) with no visual hint more
@@ -215,11 +242,7 @@ table.headline-table caption { text-align: left; font-size: 0.85rem; color: var(
 table.headline-table th, table.headline-table td {
   border-bottom: 1px solid var(--border);
   padding: 0.55em 0.75em;
-  text-align: right;
-}
-table.headline-table th:first-child, table.headline-table td:first-child,
-table.headline-table th:nth-child(2), table.headline-table td:nth-child(2) {
-  text-align: left;
+  text-align: center;
 }
 table.headline-table thead th {
   background: #eef1f5;
@@ -232,12 +255,39 @@ table.headline-table thead th {
 }
 table.headline-table tbody tr:not(.group-row):hover td { background: #f7f9fb; }
 table.headline-table tbody tr:not(.group-row) { transition: background var(--transition); }
-/* Stress = this variable's own physical direction of drought/heat stress
-   (not raw arithmetic sign -- e.g. EDDI/VPD/temperature are "stress" when
-   POSITIVE, snow/soil-moisture/precip are "stress" when NEGATIVE). Relief =
-   the opposite direction for that same variable. */
+/* The .stress class = this variable's own physical direction of drought/heat
+   stress (not raw arithmetic sign -- e.g. EDDI/VPD/temperature stress POSITIVE,
+   snow/soil-moisture/precip stress NEGATIVE); the .relief class is the opposite
+   (less-stress) direction. Both are internal class names; the UI labels this
+   axis "more stress" / "less stress". */
 table.headline-table td.stress { color: #955910; font-weight: 600; }
 table.headline-table td.relief { color: #0570b0; font-weight: 600; }
+
+/* Shared checkbox legend: one toggle per series (Compare overlay datasets,
+   Seasonal Cycle winter years). A checked box shows that series on the plot. */
+.checkbox-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1.2rem;
+  margin-top: 0.7rem;
+}
+.checkbox-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  user-select: none;
+}
+.checkbox-legend-item.is-static { cursor: default; }
+.checkbox-legend-item input { cursor: pointer; margin: 0; }
+.checkbox-legend-swatch {
+  width: 1.25rem;
+  height: 0.3rem;
+  border-radius: 2px;
+  display: inline-block;
+  flex: none;
+}
 
 /* Map page's below-map regional summary -- raw value, standardized
    anomaly, AND rank on record together, one of the dashboard's key
@@ -264,7 +314,7 @@ table.headline-table td.relief { color: #0570b0; font-weight: 600; }
   color: var(--navy);
 }
 .rank-badge.stress { background: #fbead2; color: #955910; }
-.rank-badge.relief { background: #dce9f5; color: #0570b0; }
+.rank-badge.relief { background: #dce9f5; color: #045a8d; }
 table.headline-table tr.group-row td {
   background: #f5f6f7;
   color: var(--navy);
@@ -296,15 +346,27 @@ table.headline-table tr.group-row td {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1.25rem;
-  margin: 1.5rem 0;
+  margin: 0.5rem 0 0;
 }
 @media (max-width: 860px) { .home-nav-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 560px) { .home-nav-grid { grid-template-columns: 1fr; } }
+/* Home cards grouped by function (Maps / Trends & cycles / Cross-product /
+   Reference), each group carrying its own accent on the card left-border. */
+.home-nav-section { margin: 1.75rem 0; }
+.home-nav-section-title {
+  font-family: var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin: 0 0 0.3rem;
+}
 .home-nav-card {
   display: block;
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-left: 4px solid var(--blue-dark);
+  border-left: 4px solid var(--group-accent, var(--blue-dark));
   border-radius: var(--radius-sm);
   padding: 1rem 1.2rem;
   text-decoration: none;
@@ -353,9 +415,22 @@ table.headline-table tr.group-row td {
 /* --- Explorer page --- */
 .explorer-layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+/* The heatmaps panel keeps a left category-tab sidebar (categories remain a
+   user-facing filter only here), unlike the picker pages whose category column
+   was removed -- so it uses its own two-column grid. */
+.heatmap-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
   gap: 1.5rem;
   align-items: start;
+}
+.heatmap-layout > div { min-width: 0; }
+@media (max-width: 820px) {
+  .heatmap-layout { grid-template-columns: 1fr; }
 }
 /* Grid items default to min-width:auto -- the 1fr column refuses to shrink
    below its content's natural width (the Plotly chart) instead of fitting
@@ -386,6 +461,55 @@ table.headline-table tr.group-row td {
   border-left-color: var(--cat, var(--blue));
   background: #eef1f5;
   box-shadow: var(--shadow-sm);
+}
+
+/* Dataset/Variable pivot: a segmented "pill" toggle (inset track + a raised
+   active segment), replacing the old per-category tab column -- categories now
+   live only on the summary heatmaps. Styled as a labelled control so it reads
+   as "browse the catalog by dataset, or by variable", not two loose buttons. */
+.picker-pivot {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: #e9edf2;
+  border: 1px solid var(--border, #d4d9e0);
+  border-radius: 999px;
+  margin-bottom: 0.9rem;
+  /* Hug the content instead of stretching to fill a flex-column / grid parent
+     (inline-flex alone still gets stretched as a flex item). */
+  width: fit-content;
+  align-self: flex-start;
+  justify-self: start;
+}
+/* "Browse by" lead-in, injected without touching the JS or markup. */
+.picker-pivot::before {
+  content: "Browse by";
+  padding: 0 0.6rem 0 0.5rem;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted, #566069);
+}
+.picker-pivot-btn {
+  border: none;
+  background: transparent;
+  padding: 0.42rem 1.05rem;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted, #566069);
+  cursor: pointer;
+  border-radius: 999px;
+  transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+}
+.picker-pivot-btn:hover { color: var(--text); }
+.picker-pivot-btn.active {
+  background: #fff;
+  color: var(--blue-dark, #1b4965);
+  box-shadow: 0 1px 2px rgba(16, 32, 56, 0.16), 0 0 0 1px rgba(16, 32, 56, 0.04);
 }
 
 .product-search-wrap { position: relative; max-width: 480px; margin-bottom: 1.1rem; }
@@ -445,7 +569,7 @@ table.headline-table tr.group-row td {
    .year-control-wrap with its own narrower, stepper-button-paired styling
    below, and a plain descendant selector here would have widened it to
    this rule's 180px min-width, breaking that compact layout. */
-.selector-row select, .map-controls > select {
+.selector-row select, .map-controls > select, .map-panel-row select {
   font-family: var(--font-body);
   font-size: 0.95rem;
   padding: 0.5rem 2.1rem 0.5rem 0.75rem;
@@ -458,8 +582,32 @@ table.headline-table tr.group-row td {
   cursor: pointer;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
-.selector-row select:hover, .map-controls > select:hover { border-color: var(--blue); }
-.selector-row select:focus-visible, .map-controls > select:focus-visible { border-color: var(--blue); box-shadow: var(--shadow-focus); outline: none; }
+.selector-row select:hover, .map-controls > select:hover, .map-panel-row select:hover { border-color: var(--blue); }
+.selector-row select:focus-visible, .map-controls > select:focus-visible, .map-panel-row select:focus-visible { border-color: var(--blue); box-shadow: var(--shadow-focus); outline: none; }
+/* Inside the map panels the key selects share the row and fill their share
+   rather than each forcing a 180px min-width (which overflowed). Scoped to
+   .map-panel-row so the compact year scrubber's own select is untouched. */
+.map-panel-row .select-field { flex: 0 1 240px; min-width: 0; }
+.map-panel-row select { min-width: 0; width: 100%; }
+
+.compare-slot-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  background: var(--blue-dark);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+/* Match the series colors the chart draws (compare.js COMPARE_A/B_COLOR) so the
+   A/B badge reinforces which line/axis is which -- the B series is the orange
+   right-axis line, not navy. */
+.compare-slot-label.a { background: #1b6ca8; }
+.compare-slot-label.b { background: #e8702a; }
 
 .value-glossary { font-size: 0.85rem; color: var(--text-muted); margin: -0.4rem 0 1rem; font-style: italic; }
 
@@ -512,8 +660,49 @@ table.headline-table tr.group-row td {
    decided here. */
 /* A dropdown with a small uppercase caption above it, so Region/X/Y/Color and
    Dataset/Variable selectors are self-explanatory rather than bare value boxes. */
-.select-field { display: inline-flex; flex-direction: column; gap: 0.25rem; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.select-field { display: inline-flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .select-field select { text-transform: none; font-weight: 400; letter-spacing: normal; color: var(--text); }
+
+/* Custom colour-theme dropdown: a native <select> can't render a gradient
+   swatch per option, so this is a small mac-style popover -- a bordered trigger
+   showing the current palette's swatch + name, and a rounded, shadowed panel of
+   swatched options grouped by render mode (Continuous / Discrete) and theme. */
+.cm-dd { position: relative; text-transform: none; font-weight: 400; letter-spacing: normal; }
+.cm-trigger {
+  display: flex; align-items: center; gap: 0.5rem; width: 100%;
+  padding: 0.4rem 0.6rem; background: var(--bg-panel);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font: inherit; color: var(--text); cursor: pointer;
+  box-shadow: var(--shadow-sm); transition: border-color var(--transition);
+}
+.cm-trigger:hover { border-color: var(--blue); }
+.cm-trigger:focus-visible { outline: none; box-shadow: var(--shadow-focus); border-color: var(--blue); }
+/* Longhand background-image (set inline) + no-repeat + full size so the ramp
+   fills exactly once and the end color can't wrap onto the left cap; an inset
+   hairline defines the swatch without a border that bleeds at rounded corners. */
+.cm-swatch { flex: 0 0 auto; width: 46px; height: 14px; border-radius: 3px; background-repeat: no-repeat; background-size: 100% 100%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
+.cm-trigger-name { flex: 1 1 auto; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.85rem; }
+.cm-caret { flex: 0 0 auto; color: var(--text-muted); font-size: 0.7rem; }
+.cm-panel {
+  position: absolute; z-index: 1200; top: calc(100% + 4px); left: 0;
+  min-width: 260px; max-height: 60vh; overflow-y: auto;
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md); padding: 4px;
+}
+.cm-panel[hidden] { display: none; }
+.cm-section { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text); padding: 0.55rem 0.5rem 0.2rem; position: sticky; top: 0; background: var(--bg-panel); }
+.cm-theme { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); padding: 0.3rem 0.5rem 0.1rem 0.65rem; }
+.cm-option {
+  display: flex; align-items: center; gap: 0.55rem; width: 100%;
+  padding: 0.3rem 0.5rem; border: none; background: none;
+  border-radius: var(--radius-sm); font: inherit; color: var(--text);
+  cursor: pointer; text-align: left;
+}
+.cm-option:hover { background: rgba(58, 134, 188, 0.12); }
+.cm-option[aria-selected="true"] { background: rgba(58, 134, 188, 0.20); font-weight: 600; }
+.cm-option .cm-swatch { width: 62px; }
+.cm-option-name { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.82rem; }
+/* Continuous / Discrete render-mode toggle pinned at the top of the panel. */
 /* Prominent dynamic caption over the Map / Heatmap (the Plotly charts set
    their title in the layout instead) -- names the current dataset/variable. */
 .figure-title { font-family: var(--font-heading); color: var(--navy); font-size: 1.15rem; font-weight: 700; margin: 0.6rem 0 0.5rem; }
@@ -539,7 +728,7 @@ table.headline-table tr.group-row td {
 }
 .region-type-tab:last-child { border-right: none; }
 .region-type-tab:hover:not(.active) { background: #eef1f5; color: var(--text); }
-.region-type-tab.active { background: var(--gold); color: #fff; }
+.region-type-tab.active { background: #8c510a; color: #fff; }
 /* Individual rounded pills with gaps -- a shared-border segmented bar wraps
    raggedly once there are 11+ buttons (the States tab). */
 .region-buttons { display: flex; flex-wrap: wrap; gap: 0.35rem; max-width: 100%; }
@@ -560,6 +749,64 @@ table.headline-table tr.group-row td {
 
 .map-controls { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 0.8rem; align-items: center; }
 
+/* Map page layout: a left control sidebar (all pickers, time, display, actions
+   stacked) + a map stage that fills the remaining content width, like dedicated
+   drought-mapping dashboards -- instead of the old single column that capped the
+   map at ~620px and left the rest of the width empty. Collapses to one column
+   (controls above a full-width map) on narrow screens. */
+.map-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 1.25rem; align-items: start; margin-bottom: 1.25rem; }
+.map-sidebar { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.map-sidebar .map-panel, .map-sidebar .map-panel-display, .map-sidebar .ol-actions { margin: 0; }
+.map-stage { min-width: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+/* The stage map fills the stage width (no 620px cap) with a viewport-bounded
+   height; ol.View.fit() frames the domain extent inside it. */
+.map-stage #ol-map-wrap { max-width: none; }
+/* The time controls sit full-width in the stage (the horizontal season / month /
+   year sliders need more room than the narrow sidebar gives). */
+.map-panel-time { margin: 0; }
+/* Landscape map that fits on screen (title, time bar + colorbar sit above it):
+   bounded between 400 and 600px tall, following the viewport in between. */
+.map-stage #ol-map { height: clamp(400px, calc(100vh - 430px), 600px); aspect-ratio: auto; }
+@media (max-width: 900px) {
+  .map-layout { grid-template-columns: 1fr; }
+  .map-stage #ol-map { height: 58vh; min-height: 380px; }
+}
+.map-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  padding: 0.8rem 1rem;
+}
+.map-panel-display { margin: 1rem 0; }
+.map-panel-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.map-panel-row { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center; }
+.map-toggle-btn {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+.map-toggle-btn:hover { border-color: var(--blue); }
+.map-toggle-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+/* Each panel's controls stack with consistent spacing so the search box, the
+   select row, the mode toggle, the period slider and the year scrubber each sit
+   on their own row (several are inline-flex and would otherwise crowd a line). */
+.map-panel > * + * { margin-top: 0.8rem; }
+#ol-time-panel .ol-period-slider,
+#ol-time-panel .year-control-wrap { width: 100%; }
+
 /* Period picker as a slider (Dylan, 2026-10): a play button + a track of
    discrete stops. The longer seasonal windows sit first in their own shaded,
    rounded band so they read as seasons, not months; the 12 months follow as
@@ -579,9 +826,12 @@ table.headline-table tr.group-row td {
 }
 .ol-period-play:hover { background: var(--blue-dark); border-color: var(--blue-dark); }
 .ol-period-play.playing { background: var(--gold); border-color: var(--gold); }
-/* Seasons on top, months on their own row directly below (Dylan, 2026-10). */
-.ol-period-track { display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; }
-.ol-period-group { display: inline-flex; gap: 2px; }
+/* Seasons on top, months on their own row directly below (Dylan, 2026-10).
+   The track fills the remaining width next to the play button and its season /
+   month pills wrap within it, so the slider fits the narrow control sidebar
+   (and any viewport) instead of overrunning the panel. */
+.ol-period-track { display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; flex: 1 1 0; min-width: 0; }
+.ol-period-group { display: flex; flex-wrap: wrap; gap: 2px; }
 /* Seasons: a shaded, rounded band visually distinct from the month stops. */
 .ol-period-seasons {
   background: rgba(58, 134, 188, 0.12);
@@ -590,6 +840,12 @@ table.headline-table tr.group-row td {
   padding: 2px;
 }
 .ol-period-months { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px; }
+/* On phones the 7 season pills + 12 month stops must wrap instead of pushing the
+   Time control panel off the right edge of the viewport. */
+@media (max-width: 600px) {
+  .ol-period-track { width: 100%; }
+  .ol-period-group { display: flex; flex-wrap: wrap; }
+}
 .ol-period-stop {
   border: 1px solid transparent;
   background: transparent;
@@ -603,14 +859,14 @@ table.headline-table tr.group-row td {
 }
 .ol-period-stop:hover { color: var(--text); background: rgba(2, 56, 88, 0.06); }
 .ol-period-stop.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+/* Months spanned by the currently selected seasonal window: a soft tint so the
+   month strip visibly mirrors the season above it (distinct from the navy .active). */
+.ol-period-month.in-season:not(.active) { background: rgba(58, 134, 188, 0.20); color: var(--text); }
 /* Months: compact fixed-width single-letter stops forming the slider track. */
 .ol-period-month { width: 1.5rem; padding: 0.25rem 0; text-align: center; border-radius: var(--radius-sm); }
-/* Keep the Dataset/Variable + period/mode/year controls in view while scrolling
-   the map and the regional table below -- they sit just under the sticky site
-   header (~120px tall). On mobile the header wraps taller and a sticky bar would
-   eat too much of a small screen, so it's static there. */
-.map-sticky { position: sticky; top: 120px; z-index: 5; background: var(--bg); padding: 0.4rem 0 0.5rem; }
-@media (max-width: 820px) { .map-sticky { position: static; } }
+/* A month with no COG for the current year/mode (e.g. the current year ends
+   mid-year) -- still clickable, but visibly not part of the viewable range. */
+.ol-period-month.unavailable { opacity: 0.3; }
 .map-image-wrap {
   text-align: center;
   background: #fff;
@@ -622,16 +878,22 @@ table.headline-table tr.group-row td {
 .map-image-wrap img { max-width: 100%; height: auto; border-radius: var(--radius-sm); }
 .finding-card h3 { margin-top: 0; }
 .finding-note { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.6rem; margin-bottom: 0; }
-/* Matches code/11_context_SnowDroughtQuadrants_analyze.py's own
+/* Matches code/94_context_SnowDroughtQuadrants_analyze.py's own
    figsize=(12.0, 10.2) -- that script never calls set_aspect('equal'), so
    this is the source figure's actual proportions, not a forced square. */
 #quadrant-chart { max-width: 720px; aspect-ratio: 12 / 10.2; margin: 0 auto; }
+/* The fixed quadrant aspect ratio turns into a tall, cramped sliver on a phone;
+   give it a flat height there so the scatter stays legible. */
+@media (max-width: 600px) {
+  #quadrant-chart { aspect-ratio: auto; height: 420px; }
+}
 
 /* js/heatmaps.js sets #heatmap-chart's min-width per render (column count
    varies a lot, from 12 months to 35+ years) -- this wrapper is what actually
    scrolls once that width exceeds the viewport, same pattern data.html's
    Summary Table already uses for its own too-wide-for-mobile table. */
 .heatmap-chart-scroll { overflow-x: auto; }
+.table-scroll { overflow-x: auto; }
 
 .heatmap-legend-key {
   display: flex;
@@ -676,7 +938,7 @@ table.headline-table tr.group-row td {
 /* Dropdown + prev/next steppers, not a drag slider -- exact, one click/tap,
    a native picker on mobile, no fine-motor precision needed (Dylan,
    2026-09: "these sliders are not the optimal way to select the year"). */
-.year-control-wrap { display: inline-flex; align-items: center; gap: 0.4rem; }
+.year-control-wrap { display: flex; align-items: center; gap: 0.4rem; flex-basis: 100%; width: 100%; }
 .year-control-wrap select {
   padding: 0.5rem 1.9rem 0.5rem 0.7rem;
   border: 1px solid var(--border);
@@ -761,6 +1023,7 @@ table.headline-table tr.group-row td {
    left-to-right, lowest value on the left, spanning the full map width. The
    wrap reserves space below for the absolutely-positioned break ticks. */
 .ol-legend-scale-wrap { position: relative; width: 100%; margin-bottom: 1.5rem; }
+.ol-legend-gradient { width: 100%; height: 16px; box-shadow: 0 0 0 1px #1b1b1b; border-radius: 2px; }
 .ol-legend-scale {
   display: flex;
   flex-direction: row;
@@ -770,6 +1033,21 @@ table.headline-table tr.group-row td {
   box-shadow: 0 0 0 1px #1b1b1b;
 }
 .ol-legend-swatch { flex: 1 1 0; min-width: 0; height: 100%; }
+/* Extend arrows: the end bins of a percentile-capped scale become outward
+   triangles (matplotlib extend='both'), signalling values beyond the cap.
+   The triangle widens the cell so the pointed tip clears the box edge. */
+.ol-legend-swatch.ol-legend-extend-low {
+  flex: 0 0 14px;
+  clip-path: polygon(100% 0, 100% 100%, 0 50%);
+  box-shadow: none;
+  margin-right: 1px;
+}
+.ol-legend-swatch.ol-legend-extend-high {
+  flex: 0 0 14px;
+  clip-path: polygon(0 0, 0 100%, 100% 50%);
+  box-shadow: none;
+  margin-left: 1px;
+}
 /* Ticks are a separate absolutely-positioned overlay below the bar -- a tick
    marks the BREAK between two colors (Dylan, 2026-09-29: "the colorbar ticks
    should be the color breaks, not a single point label for a whole bin"), so
@@ -823,6 +1101,12 @@ table.headline-table tr.group-row td {
   margin-bottom: 0.8rem;
   box-shadow: var(--shadow-sm);
 }
+/* Keep the keyboard focus ring visible despite the container's overflow:hidden
+   clip -- an inset ring draws inside the button, not on the clipped edge. */
+.series-toggle button:focus-visible, .region-type-tabs button:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--blue);
+}
 .series-toggle button {
   border: none;
   background: #fff;
@@ -868,3 +1152,90 @@ table.headline-table tr.group-row td {
 /* SiB4 page: each analysis panel is a spaced card. */
 .sib4-panel { margin: 1.5rem 0; padding-top: 0.5rem; border-top: 1px solid var(--border); }
 .sib4-panel:first-of-type { border-top: none; }
+
+/* SiB4 per-PFT checkbox row: a wrapping grid of small checkbox+swatch labels
+   (reuses .compare-legend-item styling) so the user picks which PFTs overlay
+   instead of all 14 at once. */
+.sib4-pft-checks { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; margin: 0.5rem 0 0.8rem; }
+.sib4-pft-checks .compare-legend-item { font-size: 0.88rem; }
+.ol-period-group#sib4-limitation-factors, #sib4-limitation-factors { display: inline-flex; flex-wrap: wrap; }
+
+/* PFT land-cover pie: a fixed-size pie beside a 2-column HTML legend (Plotly's
+   own legend can't do a fixed 2-column layout and its long PFT names run off
+   the plot). Wraps to pie-above-legend on narrow screens. */
+.sib4-composition-layout { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; align-items: center; margin-top: 0.5rem; }
+.sib4-composition-layout #sib4-composition { flex: 0 0 340px; max-width: 100%; }
+.sib4-pie-legend { flex: 1 1 360px; display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 1.2rem; align-content: center; }
+.sib4-pie-legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; line-height: 1.25; }
+.sib4-pie-legend-swatch { width: 0.9em; height: 0.9em; border-radius: 2px; flex-shrink: 0; }
+@media (max-width: 560px) { .sib4-pie-legend { grid-template-columns: 1fr; } }
+
+/* Horizontal year scrubber in the map's year control: drag across the record
+   to step through the years that have a COG (indices into availableYears). */
+.ol-year-slider-wrap { flex: 1 1 auto; min-width: 0; }
+.ol-year-slider { width: 100%; accent-color: var(--blue-dark); cursor: pointer; display: block; }
+.ol-year-axis { position: relative; height: 1.3em; margin-top: 18px; }
+.ol-year-tick { position: absolute; transform: translateX(-50%); font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+/* minor tick: short grey mark at every year; major: taller, darker, labelled */
+.ol-year-tick::before { content: ""; position: absolute; left: 50%; bottom: 100%; height: 4px; border-left: 1px solid var(--border); }
+.ol-year-tick.major { color: var(--text); font-weight: 600; }
+.ol-year-tick.major::before { height: 9px; border-left: 2px solid var(--blue-dark); }
+
+/* Sites page: a station map (same WUS framing as the Map page) + a per-site
+   time-series card below it. */
+#sites-map-wrap {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 0.75rem;
+  width: 100%;
+  max-width: 620px;
+}
+#sites-map { width: 100%; aspect-ratio: 1.35; max-width: 100%; border-radius: var(--radius-sm); overflow: hidden; }
+#sites-map .ol-attribution { right: auto; left: 0.5em; }
+.sites-network-toggle { gap: 0.4rem; }
+.sites-network-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid #fff; box-shadow: 0 0 0 1px var(--border); }
+.sites-detail { margin-top: 1.5rem; }
+
+/* SNOTEL page: station map (WUS framing) + a discrete metric legend above it. */
+#snotel-map-wrap {
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm); padding: 0.75rem; width: 100%; max-width: 680px;
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+#snotel-map { width: 100%; aspect-ratio: 1.35; max-width: 100%; border-radius: var(--radius-sm); overflow: hidden; }
+#snotel-map .ol-attribution { right: auto; left: 0.5em; }
+#snotel-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.75rem; font-size: 0.82rem; color: var(--text-muted); }
+.snotel-legend-label { font-weight: 600; color: var(--text); margin-right: 0.3rem; flex-basis: 100%; }
+.snotel-legend-item { display: inline-flex; align-items: center; gap: 0.3rem; }
+.snotel-legend-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,0.2); }
+.snotel-legend-cont { display: inline-flex; align-items: center; gap: 0.4rem; font-variant-numeric: tabular-nums; }
+.snotel-legend-bar { display: inline-block; width: 200px; height: 14px; border-radius: 3px; background-repeat: no-repeat; background-size: 100% 100%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2); }
+
+/* SNOTEL day slider: scrub through the snow season (Oct 1 -> Sep 30). */
+.snotel-day-row { align-items: center; gap: 0.6rem; }
+.snotel-slider-wrap { flex: 1 1 320px; max-width: 480px; }
+.snotel-day-slider { width: 100%; accent-color: var(--blue-dark); cursor: pointer; display: block; }
+.snotel-slider-axis { position: relative; height: 1.1em; margin-top: 2px; }
+.snotel-axis-tick { position: absolute; transform: translateX(-50%); font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.snotel-axis-tick::before { content: ""; position: absolute; left: 50%; bottom: 100%; height: 3px; border-left: 1px solid var(--border); }
+.snotel-day-label { font-weight: 600; color: var(--navy); min-width: 7.5em; }
+
+/* Compact inline label+select (Map "Color theme" in the controls row). */
+.select-field-inline { flex-direction: row; align-items: center; gap: 0.4rem; }
+
+/* Skip-to-content link (injected by common.js) -- off-screen until focused. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 2000;
+  background: var(--navy);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: top 0.15s ease;
+}
+.skip-link:focus { top: 8px; }

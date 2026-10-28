@@ -19,17 +19,23 @@
       <small>Unofficial snow drought dashboard and data explorer. For educational purposes only</small>
     </a></h1>
     <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
-    <nav class="site-nav" id="site-nav">
-      <a href="home.html" class="active">Home</a>
-      <a href="map.html">Map</a>
-      <a href="explore.html">Time Series</a>
-      <a href="seasonal.html">Seasonal Cycle</a>
-      <a href="sib4.html">SiB4</a>
-      <a href="data.html">Summary Table</a>
-      <a href="heatmaps.html">Heatmap</a>
-      <a href="classification.html">Classification</a>
-      <a href="gallery.html">Figure Gallery</a>
-      <a href="about.html">About</a>
+        <nav class="site-nav" id="site-nav">
+      <div class="nav-primary">
+        <a href="home.html" class="active">Home</a>
+        <a href="map.html">Map</a>
+        <a href="explore.html">Time Series</a>
+        <a href="seasonal.html">Seasonal Cycle</a>
+        <a href="compare.html">Compare</a>
+      </div>
+      <div class="nav-secondary">
+        <a href="sites.html">Sites</a>
+        <a href="snotel.html">SNOTEL</a>
+        <a href="sib4.html">SiB4</a>
+        <a href="data.html">Summary Statistics</a>
+        <a href="classification.html">Classification</a>
+        <a href="gallery.html">Figure Gallery</a>
+        <a href="about.html">About</a>
+      </div>
     </nav>
   </div>
 </header>
@@ -42,43 +48,76 @@
       across the Western US, 1990&ndash;2026. Each chart and map reads
       directly from the underlying data.</p>
 
-    <div class="home-nav-grid">
-      <a class="home-nav-card" href="map.html">
-        <strong>Map</strong>
-        <span>Interactive Cloud Optimized GeoTIFF maps &mdash; climatology, raw value, or anomaly, by month/season/year.</span>
-      </a>
-      <a class="home-nav-card" href="explore.html">
-        <strong>Time Series</strong>
-        <span>Monthly raw value or standardized anomaly, full record, one product at a time.</span>
-      </a>
-      <a class="home-nav-card" href="seasonal.html">
-        <strong>Seasonal Cycle</strong>
-        <span>Water-year climatology plus highlight years, one product at a time.</span>
-      </a>
-      <a class="home-nav-card" href="sib4.html">
-        <strong>SiB4</strong>
-        <span>Modeled biosphere drought response by plant functional type and time of day.</span>
-      </a>
-      <a class="home-nav-card" href="data.html">
-        <strong>Summary Table</strong>
-        <span>Every product, one month/season/year, any region, at a glance.</span>
-      </a>
-      <a class="home-nav-card" href="heatmaps.html">
-        <strong>Heatmap</strong>
-        <span>Standardized anomaly by product and time, one matrix per category.</span>
-      </a>
-      <a class="home-nav-card" href="classification.html">
-        <strong>Classification</strong>
-        <span>Dry / warm-and-dry / warm snow drought by winter, 1991&ndash;2026.</span>
-      </a>
-      <a class="home-nav-card" href="gallery.html">
-        <strong>Figure Gallery</strong>
-        <span>Browse and download pre-rendered static maps and heatmaps.</span>
-      </a>
-      <a class="home-nav-card" href="about.html">
-        <strong>About</strong>
-        <span>Methodology, data sources, and references.</span>
-      </a>
+    <div class="home-nav-section" style="--group-accent: var(--cat-snow);">
+      <p class="home-nav-section-title">Maps</p>
+      <div class="home-nav-grid">
+        <a class="home-nav-card" href="map.html">
+          <strong>Map</strong>
+          <span>Interactive maps of every dataset &mdash; climatology, raw value, or anomaly, by month/season/year, with continuous NCL colorbars.</span>
+        </a>
+        <a class="home-nav-card" href="snotel.html">
+          <strong>SNOTEL</strong>
+          <span>800+ automated snow stations: daily SWE percent of median, scrub the snow season, and each station's own record.</span>
+        </a>
+        <a class="home-nav-card" href="sites.html">
+          <strong>Sites</strong>
+          <span>The individual flux-tower and camera stations behind the site-based products, with per-site time series.</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="home-nav-section" style="--group-accent: var(--cat-vegetation);">
+      <p class="home-nav-section-title">Trends &amp; cycles</p>
+      <div class="home-nav-grid">
+        <a class="home-nav-card" href="explore.html">
+          <strong>Time Series</strong>
+          <span>Monthly raw value or standardized anomaly, full record, one product at a time.</span>
+        </a>
+        <a class="home-nav-card" href="seasonal.html">
+          <strong>Seasonal Cycle</strong>
+          <span>Water-year climatology plus highlight years, one product at a time.</span>
+        </a>
+        <a class="home-nav-card" href="sib4.html">
+          <strong>SiB4</strong>
+          <span>Modeled biosphere drought response by plant functional type and time of day.</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="home-nav-section" style="--group-accent: var(--blue-dark);">
+      <p class="home-nav-section-title">Cross-product views</p>
+      <div class="home-nav-grid">
+        <a class="home-nav-card" href="data.html">
+          <strong>Summary Statistics</strong>
+          <span>Every product, one month/season/year, any region, at a glance.</span>
+        </a>
+        <a class="home-nav-card" href="heatmaps.html">
+          <strong>Heatmap</strong>
+          <span>Standardized anomaly by product and time, one matrix per category.</span>
+        </a>
+        <a class="home-nav-card" href="classification.html">
+          <strong>Classification</strong>
+          <span>Dry / warm-and-dry / warm snow drought by winter, 1991&ndash;2026.</span>
+        </a>
+        <a class="home-nav-card" href="compare.html">
+          <strong>Compare</strong>
+          <span>Any two variables side by side, each in its own units on a shared time axis.</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="home-nav-section" style="--group-accent: var(--text-muted);">
+      <p class="home-nav-section-title">Reference</p>
+      <div class="home-nav-grid">
+        <a class="home-nav-card" href="gallery.html">
+          <strong>Figure Gallery</strong>
+          <span>Browse and download pre-rendered static maps and heatmaps.</span>
+        </a>
+        <a class="home-nav-card" href="about.html">
+          <strong>About</strong>
+          <span>Methodology, data sources, and references.</span>
+        </a>
+      </div>
     </div>
   </section>
 
@@ -87,9 +126,8 @@
 <footer class="site-footer">
   <div class="footer-inner">
     <p>
-      Source: snowdrought-carbon (private research codebase, NOAA
-      Global Monitoring Laboratory &middot; Cooperative Institute for
-      Research in Environmental Sciences).
+      NOAA Global Monitoring Laboratory &middot; Cooperative Institute for
+      Research in Environmental Sciences.
     </p>
     <p>
       See <a href="about.html">About</a> for methodology, references, and

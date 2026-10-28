@@ -21,16 +21,22 @@
     </a></h1>
     <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
     <nav class="site-nav" id="site-nav">
-      <a href="home.html">Home</a>
-      <a href="map.html">Map</a>
-      <a href="explore.html">Time Series</a>
-      <a href="seasonal.html">Seasonal Cycle</a>
-      <a href="sib4.html">SiB4</a>
-      <a href="data.html">Summary Table</a>
-      <a href="heatmaps.html" class="active">Heatmap</a>
-      <a href="classification.html">Classification</a>
-      <a href="gallery.html">Figure Gallery</a>
-      <a href="about.html">About</a>
+      <div class="nav-primary">
+        <a href="home.html">Home</a>
+        <a href="map.html">Map</a>
+        <a href="explore.html">Time Series</a>
+        <a href="seasonal.html">Seasonal Cycle</a>
+        <a href="compare.html">Compare</a>
+      </div>
+      <div class="nav-secondary">
+        <a href="sites.html">Sites</a>
+        <a href="snotel.html">SNOTEL</a>
+        <a href="sib4.html">SiB4</a>
+        <a href="data.html">Summary Statistics</a>
+        <a href="classification.html">Classification</a>
+        <a href="gallery.html">Figure Gallery</a>
+        <a href="about.html">About</a>
+      </div>
     </nav>
   </div>
 </header>
@@ -42,14 +48,25 @@
     <p class="finding-note">Standardized anomaly (&sigma;) per product: one
       row per product/response, one column per month or year. Each row is
       sign-flipped to its own variable's stress direction (e.g. low
-      snowpack is the stress direction, not high), so gold is always stress
-      and teal is always relief, regardless of the variable's raw sign
+      snowpack is the stress direction, not high), so brown always means more stress
+      and teal always means less stress, regardless of the variable's raw sign
       convention.</p>
+    <p class="finding-note">Every row is standardized against that product's
+      <em>own</em> baseline (the month's or season's anomaly divided by the
+      standard deviation of that same month or season across the product's
+      baseline years), so a given
+      &sigma; is the same number of standard deviations from normal in each
+      product's own climatology &mdash; comparable across rows in that sense.
+      But baselines differ in period and length: short-record products (e.g.
+      SMAP, GRACE) reference a shorter climate epoch and estimate that standard
+      deviation from fewer years, so read a row's color as its standing within
+      its own history, not as a strict cross-product ranking.</p>
     <div class="heatmap-legend-key">
-      <span><span class="heatmap-legend-swatch" style="background:#955910;"></span> Stress</span>
-      <span><span class="heatmap-legend-swatch" style="background:#0570b0;"></span> Relief</span>
+      <span><span class="heatmap-legend-swatch" style="background:#563105;"></span> More stress</span>
+      <span><span class="heatmap-legend-swatch" style="background:#003c30;"></span> Less stress</span>
+      <span><span class="heatmap-legend-swatch" style="background:#c8c8c8;"></span> No data</span>
     </div>
-    <div class="explorer-layout">
+    <div class="heatmap-layout">
       <nav class="category-tabs" id="heatmap-category-tabs" aria-label="Category"></nav>
 
       <div>
@@ -71,9 +88,8 @@
 <footer class="site-footer">
   <div class="footer-inner">
     <p>
-      Source: snowdrought-carbon (private research codebase, NOAA
-      Global Monitoring Laboratory &middot; Cooperative Institute for
-      Research in Environmental Sciences).
+      NOAA Global Monitoring Laboratory &middot; Cooperative Institute for
+      Research in Environmental Sciences.
     </p>
     <p>
       See <a href="about.html">About</a> for methodology, references, and
@@ -83,6 +99,7 @@
 </footer>
 
 <script src="js/common.js"></script>
+<script src="js/ncl-colormaps.js"></script>
 <script src="js/heatmaps.js"></script>
 </body>
 </html>

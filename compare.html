@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Standardized-anomaly overlay across every product in a category, for the Western US snow drought dashboard.">
+<meta name="description" content="Compare any two variables side by side, each in its own units on a shared time axis, for the Western US snow drought dashboard.">
 <title>Compare &mdash; 2025-2026 Western US Climate and Snow Drought Explorer</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg stroke='%23162e51' stroke-width='2' stroke-linecap='round'%3E%3Cline x1='12' y1='2' x2='12' y2='22'/%3E%3Cline x1='4' y1='6' x2='20' y2='18'/%3E%3Cline x1='4' y1='18' x2='20' y2='6'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,17 +20,23 @@
       <small>Unofficial snow drought dashboard and data explorer. For educational purposes only</small>
     </a></h1>
     <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
-    <nav class="site-nav" id="site-nav">
-      <a href="home.html">Home</a>
-      <a href="map.html">Map</a>
-      <a href="explore.html">Time Series</a>
-      <a href="seasonal.html">Seasonal Cycle</a>
-      <a href="sib4.html">SiB4</a>
-      <a href="data.html">Summary Table</a>
-      <a href="heatmaps.html">Heatmap</a>
-      <a href="classification.html">Classification</a>
-      <a href="gallery.html">Figure Gallery</a>
-      <a href="about.html">About</a>
+        <nav class="site-nav" id="site-nav">
+      <div class="nav-primary">
+        <a href="home.html">Home</a>
+        <a href="map.html">Map</a>
+        <a href="explore.html">Time Series</a>
+        <a href="seasonal.html">Seasonal Cycle</a>
+        <a href="compare.html" class="active">Compare</a>
+      </div>
+      <div class="nav-secondary">
+        <a href="sites.html">Sites</a>
+        <a href="snotel.html">SNOTEL</a>
+        <a href="sib4.html">SiB4</a>
+        <a href="data.html">Summary Statistics</a>
+        <a href="classification.html">Classification</a>
+        <a href="gallery.html">Figure Gallery</a>
+        <a href="about.html">About</a>
+      </div>
     </nav>
   </div>
 </header>
@@ -38,30 +44,61 @@
 <main>
 
   <section id="compare">
-    <h2>Compare</h2>
-    <p class="finding-note">Standardized anomalies (&sigma;) overlaid on one
-      chart, one shared axis &mdash; &sigma; removes each variable's
-      physical units, leaving only its departure from baseline.</p>
+    <h2>Compare two variables</h2>
+    <p class="finding-note">Any two variables on a shared time axis &mdash; in
+      raw units each reads on its own y-axis (A left, B right); switch to
+      &sigma; to put both on one standardized scale.</p>
     <div class="selector-row">
-      <select id="compare-category-select" aria-label="Category"></select>
+      <span class="compare-slot-label a">A</span>
+      <div class="picker-pivot" id="compare-a-pivot"></div>
+      <select id="compare-a-product" aria-label="Panel A dataset"></select>
+      <select id="compare-a-response" aria-label="Panel A variable"></select>
+    </div>
+    <div class="selector-row">
+      <span class="compare-slot-label b">B</span>
+      <div class="picker-pivot" id="compare-b-pivot"></div>
+      <select id="compare-b-product" aria-label="Panel B dataset"></select>
+      <select id="compare-b-response" aria-label="Panel B variable"></select>
+    </div>
+    <div class="selector-row">
       <select id="compare-region-select" aria-label="Region"></select>
       <label class="boundary-toggle" for="compare-start-year-select">Start year
         <select id="compare-start-year-select" aria-label="Start year"></select>
       </label>
+      <div class="series-toggle" id="compare-series-toggle">
+        <button type="button" data-series="value" class="active">Raw units</button>
+        <button type="button" data-series="sigma">&sigma;</button>
+      </div>
     </div>
-    <p id="compare-category-note" class="value-glossary"></p>
-    <div class="compare-chart-layout">
-      <div id="compare-chart" style="height:480px;"></div>
-      <div id="compare-category-legend" class="compare-legend"></div>
-    </div>
-    <p class="finding-note">Add a variable from any category to overlay it alongside the checklist above.</p>
+    <h3 id="compare-title" class="figure-title"></h3>
+    <p id="compare-meta" class="value-glossary"></p>
+    <div id="compare-chart" style="height:460px;"></div>
+  </section>
+
+  <section id="overlay">
+    <h2>Overlay datasets for one variable</h2>
+    <p class="finding-note">Pick one variable and overlay every dataset that
+      measures it on a single shared axis. Toggle datasets with the legend
+      checkboxes below the chart. View the raw value, the raw-unit anomaly, or
+      the standardized &sigma; anomaly.</p>
     <div class="selector-row">
-      <select id="compare-add-category" aria-label="Category to add a variable from"></select>
-      <select id="compare-add-product" aria-label="Product to add"></select>
-      <select id="compare-add-response" aria-label="Variable to add"></select>
-      <button type="button" id="compare-add-button">Add</button>
+      <label class="boundary-toggle" for="overlay-variable-select">Variable
+        <select id="overlay-variable-select" aria-label="Variable"></select>
+      </label>
+      <select id="overlay-region-select" aria-label="Region"></select>
+      <label class="boundary-toggle" for="overlay-start-year-select">Start year
+        <select id="overlay-start-year-select" aria-label="Start year"></select>
+      </label>
+      <div class="series-toggle" id="overlay-series-toggle">
+        <button type="button" data-series="value" class="active">Raw value</button>
+        <button type="button" data-series="anomaly">Anomaly</button>
+        <button type="button" data-series="sigma">&sigma;</button>
+      </div>
     </div>
-    <div id="compare-extra-series" class="year-chip-row"></div>
+    <h3 id="overlay-title" class="figure-title"></h3>
+    <p id="overlay-meta" class="value-glossary"></p>
+    <div id="overlay-chart" style="height:460px;"></div>
+    <div id="overlay-legend" class="checkbox-legend" role="group" aria-label="Datasets"></div>
   </section>
 
 </main>
@@ -69,9 +106,8 @@
 <footer class="site-footer">
   <div class="footer-inner">
     <p>
-      Source: snowdrought-carbon (private research codebase, NOAA
-      Global Monitoring Laboratory &middot; Cooperative Institute for
-      Research in Environmental Sciences).
+      NOAA Global Monitoring Laboratory &middot; Cooperative Institute for
+      Research in Environmental Sciences.
     </p>
     <p>
       See <a href="about.html">About</a> for methodology, references, and
@@ -81,6 +117,7 @@
 </footer>
 
 <script src="js/common.js"></script>
+<script src="js/product-picker.js"></script>
 <script src="js/compare.js"></script>
 </body>
 </html>

@@ -1,11 +1,29 @@
 // About page. Value-type glossary list and the observational-coverage
 // timeline both come straight from manifest.json -- no new data needed.
 
+// Friendly display labels for the value-type keys -- the manifest carries
+// snake_case codes (percent_of_normal, anomaly_raw, ...) that should not be
+// shown raw to a reader. Unmapped keys fall back to a de-underscored form.
+const VALUE_TYPE_LABELS = {
+  sigma: "Standardized anomaly (σ), charts", sigma_window: "Standardized anomaly (σ), tables and heatmaps",
+  anomaly_raw: "Raw-unit anomaly",
+  percent_of_normal: "Percent of mean", percentile: "Percentile",
+  rank: "Driest/wettest rank", raw: "Raw value",
+};
+
 function renderValueTypeGlossary() {
   const list = document.getElementById("value-type-list");
-  Object.entries(manifest.value_type_glossary || {}).forEach(([key, text]) => {
+  // Merge in representations the Summary Table adds client-side but the
+  // manifest glossary doesn't carry yet (keeps this list in sync with the
+  // actual Summary Table dropdown). anomaly_raw wording mirrors js/summary.js.
+  const glossary = {
+    ...(manifest.value_type_glossary || {}),
+    anomaly_raw: "The departure from the baseline mean in the variable's own physical units (not standardized) -- the window value minus its baseline-mean normal.",
+  };
+  Object.entries(glossary).forEach(([key, text]) => {
     const li = document.createElement("li");
-    li.innerHTML = `<strong>${key}</strong>: ${text}`;
+    const label = VALUE_TYPE_LABELS[key] || key.replace(/_/g, " ");
+    li.innerHTML = `<strong>${label}</strong>: ${text}`;
     list.appendChild(li);
   });
 }
@@ -42,7 +60,7 @@ function renderCoverageChart() {
         return end - start;
       }),
       marker: { color: manifest.category_colors[category] },
-      hovertext: catRows.map((r) => `${r.product} ${r.response}: ${r.start} to ${r.end} (${r.status})`),
+      hovertext: catRows.map((r) => `${r.product} ${r.response}: ${r.start} to ${r.end} (${STATUS_LABELS[r.status] || r.status})`),
       hoverinfo: "text",
     };
   });
@@ -61,8 +79,8 @@ function renderCoverageChart() {
   const layout = {
     margin: { t: 55, r: 20, b: 45, l: 180 },
     barmode: "stack",
-    xaxis: { type: "date", title: "Record coverage", range: [`${DASHBOARD_MIN_YEAR}-01-01`, latestEnd] },
-    yaxis: { automargin: true },
+    xaxis: { ...PLOTLY_AXIS_LINE, type: "date", title: "Record coverage", range: [`${DASHBOARD_MIN_YEAR}-01-01`, latestEnd] },
+    yaxis: { ...PLOTLY_AXIS_LINE, automargin: true },
     font: { family: "Source Sans Pro, sans-serif", size: 12 },
     height: Math.max(400, rows.length * 16 + 100),
     // Anchor the legend flush above the plot top; a fractional y (e.g. 1.08)

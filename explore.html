@@ -20,17 +20,23 @@
       <small>Unofficial snow drought dashboard and data explorer. For educational purposes only</small>
     </a></h1>
     <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
-    <nav class="site-nav" id="site-nav">
-      <a href="home.html">Home</a>
-      <a href="map.html">Map</a>
-      <a href="explore.html" class="active">Time Series</a>
-      <a href="seasonal.html">Seasonal Cycle</a>
-      <a href="sib4.html">SiB4</a>
-      <a href="data.html">Summary Table</a>
-      <a href="heatmaps.html">Heatmap</a>
-      <a href="classification.html">Classification</a>
-      <a href="gallery.html">Figure Gallery</a>
-      <a href="about.html">About</a>
+        <nav class="site-nav" id="site-nav">
+      <div class="nav-primary">
+        <a href="home.html">Home</a>
+        <a href="map.html">Map</a>
+        <a href="explore.html" class="active">Time Series</a>
+        <a href="seasonal.html">Seasonal Cycle</a>
+        <a href="compare.html">Compare</a>
+      </div>
+      <div class="nav-secondary">
+        <a href="sites.html">Sites</a>
+        <a href="snotel.html">SNOTEL</a>
+        <a href="sib4.html">SiB4</a>
+        <a href="data.html">Summary Statistics</a>
+        <a href="classification.html">Classification</a>
+        <a href="gallery.html">Figure Gallery</a>
+        <a href="about.html">About</a>
+      </div>
     </nav>
   </div>
 </header>
@@ -50,7 +56,7 @@
     </div>
 
     <div class="explorer-layout">
-      <nav class="category-tabs" id="category-tabs" aria-label="Dataset category"></nav>
+      <div class="picker-pivot" id="picker-pivot" role="group" aria-label="Browse by dataset or by variable"></div>
 
       <div>
         <div class="selector-row">
@@ -70,9 +76,25 @@
             <select id="timeseries-start-year-select" aria-label="Start year"></select>
           </label>
         </div>
+        <p class="value-glossary" id="timeseries-sigma-note"></p>
         <h3 class="figure-title" id="timeseries-title"></h3>
         <div class="product-meta" id="product-meta"></div>
         <div id="timeseries-chart" style="height:480px;"></div>
+
+        <div class="region-table-card" id="timeseries-region-table-wrap">
+          <h3 id="timeseries-region-table-heading">Regional values</h3>
+          <div class="selector-row">
+            <label class="select-field">Window <select id="timeseries-table-window-select" aria-label="Table window"></select></label>
+            <label class="select-field">Year <select id="timeseries-table-year-select" aria-label="Table year"></select></label>
+          </div>
+          <p id="timeseries-region-table-note" class="value-glossary"></p>
+          <div class="table-scroll">
+            <table class="headline-table region-values-table" id="timeseries-region-table">
+              <thead><tr><th>Region</th><th id="timeseries-region-rawval-th">Raw value</th><th>Baseline mean</th><th class="pct-normal-th">% of mean</th><th>Anomaly (raw)</th><th>Anomaly (&sigma;)</th><th>Rank on record</th></tr></thead>
+              <tbody id="timeseries-region-table-body"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -82,9 +104,8 @@
 <footer class="site-footer">
   <div class="footer-inner">
     <p>
-      Source: snowdrought-carbon (private research codebase, NOAA
-      Global Monitoring Laboratory &middot; Cooperative Institute for
-      Research in Environmental Sciences).
+      NOAA Global Monitoring Laboratory &middot; Cooperative Institute for
+      Research in Environmental Sciences.
     </p>
     <p>
       See <a href="about.html">About</a> for methodology, references, and

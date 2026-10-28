@@ -16,38 +16,58 @@
 // the pipeline's own precomputed classification (data/
 // snow_drought_classification.json's "regime" field), never recomputed here.
 // Labels are dataset-qualified, matching 94_context_SnowDroughtQuadrants_
-// analyze.py's own VARIABLES dict verbatim (its "label" field, minus the
-// "DJFM Anomaly (unit)" suffix -- unit/window are shown separately here).
+// analyze.py's own VARIABLES dict (its "label" field). Each variable carries
+// its own temporal window (t2m/precip over Oct-Apr, SWE at the annual peak,
+// everything else DJFM) in a `window` field so two otherwise-parallel options
+// (e.g. PRISM precip Oct-Apr vs ERA5-Land precip DJFM) are distinguishable;
+// the window + unit are shown in the axis/colorbar titles.
 // Expanded 2026-10-01 (Dylan: "we should be able to plot more temp/vpd/
 // precip/snow variables") with 5 more ERA5-Land/PRISM drivers already in the
 // same pipeline file, no new reducer needed.
 const QUADRANT_VARIABLES = {
-  t_anom: { label: "ERA5-Land Temperature", unit: "°C", stress_high: true, stress: "warm", benign: "cold" },
-  ppt_anom: { label: "PRISM Precipitation", unit: "mm", stress_high: false, stress: "dry", benign: "wet" },
-  swe_anom: { label: "SNOTEL Snowpack", unit: "mm", stress_high: false, stress: "low snow", benign: "high snow" },
-  vpd_anom: { label: "PRISM Max VPD", unit: "hPa", stress_high: true, stress: "high VPD", benign: "low VPD" },
-  vpdmin_anom: { label: "PRISM Min VPD", unit: "hPa", stress_high: true, stress: "high VPD", benign: "low VPD" },
-  sca_terra_anom: { label: "MODIS-Terra Snow Cover", unit: "%", stress_high: false, stress: "low snow cover", benign: "high snow cover" },
-  sca_aqua_anom: { label: "MODIS-Aqua Snow Cover", unit: "%", stress_high: false, stress: "low snow cover", benign: "high snow cover" },
-  era5_vpd_anom: { label: "ERA5-Land VPD", unit: "hPa", stress_high: true, stress: "high VPD", benign: "low VPD" },
-  era5_ppt_anom: { label: "ERA5-Land Precipitation", unit: "mm", stress_high: false, stress: "dry", benign: "wet" },
-  era5_swe_anom: { label: "ERA5-Land SWE", unit: "mm", stress_high: false, stress: "low snow", benign: "high snow" },
-  era5_sca_anom: { label: "ERA5-Land Snow Cover", unit: "%", stress_high: false, stress: "low snow cover", benign: "high snow cover" },
+  t_anom: { label: "ERA5-Land Temperature", window: "Oct–Apr", unit: "°C", stress_high: true, stress: "warm", benign: "cold" },
+  ppt_anom: { label: "PRISM Precipitation", window: "Oct–Apr", unit: "mm", stress_high: false, stress: "dry", benign: "wet" },
+  swe_anom: { label: "SNOTEL Peak SWE", window: "", unit: "mm", stress_high: false, stress: "low snow", benign: "high snow" },
+  vpd_anom: { label: "PRISM Max VPD", window: "DJFM", unit: "hPa", stress_high: true, stress: "high VPD", benign: "low VPD" },
+  vpdmin_anom: { label: "PRISM Min VPD", window: "DJFM", unit: "hPa", stress_high: true, stress: "high VPD", benign: "low VPD" },
+  sca_terra_anom: { label: "MODIS-Terra Snow Cover", window: "DJFM", unit: "%", stress_high: false, stress: "low snow cover", benign: "high snow cover" },
+  sca_aqua_anom: { label: "MODIS-Aqua Snow Cover", window: "DJFM", unit: "%", stress_high: false, stress: "low snow cover", benign: "high snow cover" },
+  era5_vpd_anom: { label: "ERA5-Land VPD", window: "DJFM", unit: "hPa", stress_high: true, stress: "high VPD", benign: "low VPD" },
+  era5_ppt_anom: { label: "ERA5-Land Precipitation", window: "DJFM", unit: "mm", stress_high: false, stress: "dry", benign: "wet" },
+  era5_swe_anom: { label: "ERA5-Land SWE", window: "DJFM", unit: "mm", stress_high: false, stress: "low snow", benign: "high snow" },
+  era5_sca_anom: { label: "ERA5-Land Snow Cover", window: "DJFM", unit: "%", stress_high: false, stress: "low snow cover", benign: "high snow cover" },
 };
+// Exactly three snow-drought types plus "none" (peak SWE at/above its mean, so
+// not a drought) -- no "other" regime (mirrors 94_context_SnowDroughtQuadrants_
+// analyze.py's REGIMES).
 const REGIME_COLORS = { dry: "#dfc27d", warm_dry: "#d6604d", warm: "#f4a582", none: "#92c5de" };
+// Darker, higher-contrast versions for the corner-label TEXT on the white
+// panel -- the pale marker tints above fail WCAG contrast as text.
+const REGIME_TEXT_COLORS = { dry: "#8a6d1b", warm_dry: "#a50f15", warm: "#c0392b", none: "#2166ac" };
+// A second (shape) channel per regime so the scatter isn't color-only.
+const REGIME_SYMBOLS = { dry: "diamond", warm_dry: "square", warm: "triangle-up", none: "circle" };
 const REGIME_LABELS = {
   dry: "Dry snow drought", warm_dry: "Warm & dry snow drought",
   warm: "Warm snow drought", none: "No snow drought",
 };
-// NCL precip_diff_12lev diverging ramp -- used when points are colored by a
-// driver variable's anomaly (centered at 0), matching the rest of the site.
-const PRECIP_DIFF = [
-  [0, "#023858"], [0.0833, "#0570b0"], [0.1667, "#6eaac8"], [0.25, "#53bd9f"],
-  [0.3333, "#99f0b2"], [0.4167, "#cdffcd"], [0.5, "#ffffff"], [0.5833, "#fff5ba"],
-  [0.6667, "#f5e09e"], [0.75, "#f5cd84"], [0.8333, "#e1a564"], [0.9167, "#cd853f"], [1, "#b66a28"],
-];
+// Short legend labels so the horizontal legend stays on a single row (the full
+// labels wrap and overlap the plot); hover text and the table keep REGIME_LABELS.
+const REGIME_LEGEND_LABELS = {
+  dry: "Dry", warm_dry: "Warm & dry", warm: "Warm", none: "No drought",
+};
+// Driver-anomaly coloring: a continuous NCL ramp as a Plotly colorscale, with
+// pure white at the midpoint (the MPL_ tables are off-white there, and zero
+// anomaly is meaningful). Thermal/demand drivers (stress_high) read red = warm
+// on MPL_RdBu reversed; moisture/snow drivers read brown = low on MPL_BrBG.
+function driverColorscale(stressHigh) {
+  const colors = NCL_COLORMAPS.diverging[stressHigh ? "MPL_RdBu" : "MPL_BrBG"].colors.slice();
+  if (stressHigh) colors.reverse();
+  if (colors.length % 2 === 0) throw new Error("driverColorscale needs an odd number of stops to center white");
+  colors[(colors.length - 1) / 2] = "#ffffff";
+  return colors.map((color, i) => [i / (colors.length - 1), color]);
+}
 
-const quadrantState = { region: "ALL", x: "t_anom", y: "ppt_anom", color: "year", rows: [] };
+const quadrantState = { region: "ALL", x: "t_anom", y: "swe_anom", color: "ppt_anom", rows: [] };
 
 async function initQuadrantView() {
   const xSelect = document.getElementById("quadrant-x-select");
@@ -60,7 +80,7 @@ async function initQuadrantView() {
   quadrantState.rows = await res.json();
 
   // This classification is computed over PILOT_REGIONS specifically (see
-  // 11_context_SnowDroughtQuadrants_analyze.py), a narrower set than the
+  // 94_context_SnowDroughtQuadrants_analyze.py), a narrower set than the
   // dashboard's general manifest.region_labels -- so the region options
   // here come from whichever regions actually appear in this file's own
   // data, not the full region list. manifest.region_labels only supplies
@@ -71,7 +91,7 @@ async function initQuadrantView() {
   regionCodes.forEach((code) => {
     const option = document.createElement("option");
     option.value = code;
-    option.textContent = manifest.region_labels[code] || code;
+    option.textContent = regionLabelFor(code);
     if (code === quadrantState.region) option.selected = true;
     regionSelect.appendChild(option);
   });
@@ -106,9 +126,11 @@ async function initQuadrantView() {
   regionSelect.addEventListener("change", (e) => {
     quadrantState.region = e.target.value;
     renderQuadrantChart();
+    renderQuadrantTable();
   });
 
   renderQuadrantChart();
+  renderQuadrantTable();
 }
 
 function renderQuadrantChart() {
@@ -126,42 +148,34 @@ function renderQuadrantChart() {
   const ymax = Math.max(...points.map((p) => Math.abs(p[y]))) * 1.12;
   const shapes = [];
   const annotations = [];
-  const isDierauer = x === "t_anom" && y === "ppt_anom";
-
-  if (isDierauer) {
-    // Native Dierauer view: x = temperature (warm right), y = precipitation (wet up).
-    const fills = {
-      warm: [0, xmax, 0, ymax], none: [-xmax, 0, 0, ymax],
-      warm_dry: [0, xmax, -ymax, 0], dry: [-xmax, 0, -ymax, 0],
-    };
+  // Quadrant corner labels (no background shading -- the panels stay white). On
+  // the Dierauer default pair (x = precipitation, y = temperature) the three
+  // snow-drought TYPES partition the plane exactly as classify() keys them on
+  // precipitation: adequate precip (right half) = warm; a precip deficit splits
+  // by temperature into warm & dry (upper left) and dry (lower left). The
+  // below-mean-peak-SWE gate (SWE on neither axis) decides whether a winter is a
+  // drought at all, so it is shown per point via color-by-regime + hover -- the
+  // corner label only names the type a drought winter's precip/temperature would
+  // imply, never which winters are droughts. Any other axis pair has no such
+  // partition, so fall back to labeling the fully-stressed / fully-benign
+  // corners by axis position.
+  const dierauerPair = x === "ppt_anom" && y === "t_anom";
+  if (dierauerPair) {
     const corners = {
-      warm: [xmax, ymax, "right", "top"], none: [-xmax, ymax, "left", "top"],
-      warm_dry: [xmax, -ymax, "right", "bottom"], dry: [-xmax, -ymax, "left", "bottom"],
+      warm: [xmax, ymax, "right", "top"],
+      warm_dry: [-xmax, ymax, "left", "top"],
+      dry: [-xmax, -ymax, "left", "bottom"],
     };
-    Object.entries(fills).forEach(([regime, [x0, x1, y0, y1]]) => {
-      shapes.push({ type: "rect", x0, x1, y0, y1, fillcolor: REGIME_COLORS[regime], opacity: 0.13, line: { width: 0 }, layer: "below" });
-    });
-    Object.entries(corners).forEach(([regime, [ax, ay, xanchor, yanchor]]) => {
+    Object.entries(corners).forEach(([regime, [cx, cy, xa, ya]]) => {
       annotations.push({
-        x: ax * 0.96, y: ay * 0.96, text: REGIME_LABELS[regime], showarrow: false,
-        font: { size: 12, color: REGIME_COLORS[regime], weight: 700 },
-        xanchor, yanchor,
+        x: cx * 0.96, y: cy * 0.96, text: REGIME_LABELS[regime], showarrow: false,
+        font: { size: 12, color: REGIME_TEXT_COLORS[regime], weight: 700 },
+        xanchor: xa, yanchor: ya,
       });
     });
   } else {
-    // Generic stress-quadrant shading for any other axis pair: tint by how
-    // many of the two axes point toward drought stress.
     const sx = xMeta.stress_high ? 1 : -1;
     const sy = yMeta.stress_high ? 1 : -1;
-    const tint = { 2: "#b66a28", 1: "#f5e09e", 0: "#0570b0" };
-    [1, -1].forEach((xs) => {
-      const [x0, x1] = xs > 0 ? [0, xmax] : [-xmax, 0];
-      [1, -1].forEach((ys) => {
-        const [y0, y1] = ys > 0 ? [0, ymax] : [-ymax, 0];
-        const n = (xs === sx ? 1 : 0) + (ys === sy ? 1 : 0);
-        shapes.push({ type: "rect", x0, x1, y0, y1, fillcolor: tint[n], opacity: 0.13, line: { width: 0 }, layer: "below" });
-      });
-    });
     const sxp = sx > 0 ? xmax : -xmax;
     const syp = sy > 0 ? ymax : -ymax;
     annotations.push({
@@ -177,9 +191,12 @@ function renderQuadrantChart() {
   }
 
   // Year labels on every point with a short leader line, matching the static
-  // classification figures (Dylan, #3); 2026 is bold and larger.
+  // classification figures (Dylan, #3); 2026 is bold and larger. On a phone the
+  // 36 labels collide into an unreadable mass, so there show only 2026.
+  const isNarrow = typeof window !== "undefined" && window.innerWidth < 600;
   const sizes = points.map((p) => (p.winter_year === 2026 ? 16 : 9));
   points.forEach((p) => {
+    if (isNarrow && p.winter_year !== 2026) return;
     annotations.push({
       x: p[x], y: p[y], text: String(p.winter_year),
       showarrow: true, arrowhead: 0, arrowwidth: 0.7, arrowcolor: "#bbb", ax: 10, ay: -11,
@@ -191,43 +208,86 @@ function renderQuadrantChart() {
     });
   });
 
-  // Color encoding (3rd axis): by winter year (default, sequential), by any
-  // driver variable's anomaly (diverging, centered at 0), or by regime.
+  // Color encoding (3rd axis): by regime (default; categorical, so one trace
+  // per regime to get a real legend -- a discrete field has no colorbar), by
+  // winter year (sequential), or by any driver variable's anomaly (diverging,
+  // centered at 0).
   const colorBy = quadrantState.color;
-  let marker;
+  let traces;
   if (colorBy === "regime") {
-    marker = { size: sizes, color: points.map((p) => REGIME_COLORS[p.regime]), line: { color: "#333", width: 0.8 } };
-  } else if (colorBy === "year") {
-    marker = {
-      size: sizes, color: points.map((p) => p.winter_year), colorscale: "Viridis",
-      colorbar: { title: { text: "Winter year", side: "right" }, thickness: 14 },
-      line: { color: "#333", width: 0.8 },
-    };
+    traces = Object.keys(REGIME_COLORS)
+      .filter((regime) => points.some((p) => p.regime === regime))
+      .map((regime) => {
+        const pr = points.filter((p) => p.regime === regime);
+        return {
+          x: pr.map((p) => p[x]), y: pr.map((p) => p[y]),
+          mode: "markers", type: "scatter", name: REGIME_LEGEND_LABELS[regime],
+          marker: {
+            size: pr.map((p) => (p.winter_year === 2026 ? 16 : 9)),
+            color: REGIME_COLORS[regime], symbol: REGIME_SYMBOLS[regime], line: { color: "#333", width: 0.8 },
+          },
+          hovertext: pr.map((p) => `${p.winter_year}: ${REGIME_LABELS[p.regime]}`),
+          hoverinfo: "text",
+        };
+      });
   } else {
-    const cMeta = QUADRANT_VARIABLES[colorBy];
-    marker = {
-      size: sizes, color: points.map((p) => p[colorBy]), colorscale: PRECIP_DIFF, cmid: 0,
-      colorbar: { title: { text: `${cMeta.label} (${cMeta.unit})`, side: "right" }, thickness: 14 },
-      line: { color: "#333", width: 0.8 },
-    };
+    let marker;
+    if (colorBy === "year") {
+      marker = {
+        size: sizes, color: points.map((p) => p.winter_year), colorscale: "Viridis",
+        colorbar: { title: { text: "Winter year", side: "right" }, thickness: 14 },
+        line: { color: "#333", width: 0.8 },
+      };
+    } else {
+      const cMeta = QUADRANT_VARIABLES[colorBy];
+      const values = points.map((p) => p[colorBy]).filter((v) => v !== null);
+      const limit = Math.max(...values.map((v) => Math.abs(v)));
+      marker = {
+        size: sizes, color: points.map((p) => p[colorBy]),
+        colorscale: driverColorscale(cMeta.stress_high), cmin: -limit, cmax: limit,
+        colorbar: { title: { text: `${cMeta.label}${cMeta.window ? " " + cMeta.window : ""} anomaly (${cMeta.unit})`, side: "right" }, thickness: 14 },
+        line: { color: "#333", width: 0.8 },
+      };
+    }
+    traces = [{
+      x: points.map((p) => p[x]), y: points.map((p) => p[y]),
+      mode: "markers", type: "scatter", marker,
+      hovertext: points.map((p) => `${p.winter_year}: ${REGIME_LABELS[p.regime]}`),
+      hoverinfo: "text",
+    }];
   }
 
-  const trace = {
-    x: points.map((p) => p[x]), y: points.map((p) => p[y]),
-    mode: "markers", type: "scatter", marker,
-    hovertext: points.map((p) => `${p.winter_year}: ${REGIME_LABELS[p.regime]}`),
-    hoverinfo: "text",
-  };
-
   const layout = {
-    margin: { t: 20, r: 80, b: 55, l: 65 },
-    xaxis: { title: `${xMeta.label} anomaly (${xMeta.unit})`, range: [-xmax, xmax], zeroline: true, zerolinecolor: "#555" },
-    yaxis: { title: `${yMeta.label} anomaly (${yMeta.unit})`, range: [-ymax, ymax], zeroline: true, zerolinecolor: "#555" },
+    margin: { t: colorBy === "regime" ? 70 : 20, r: isNarrow ? 58 : 80, b: 55, l: isNarrow ? 48 : 65 },
+    xaxis: { ...PLOTLY_AXIS_LINE, title: `${xMeta.label}${xMeta.window ? " " + xMeta.window : ""} anomaly (${xMeta.unit})`, range: [-xmax, xmax], zeroline: true, zerolinecolor: "#555" },
+    yaxis: { ...PLOTLY_AXIS_LINE, title: `${yMeta.label}${yMeta.window ? " " + yMeta.window : ""} anomaly (${yMeta.unit})`, range: [-ymax, ymax], zeroline: true, zerolinecolor: "#555" },
     font: { family: "Source Sans Pro, sans-serif", size: 13 },
     shapes, annotations,
-    showlegend: false,
+    showlegend: colorBy === "regime",
+    legend: { orientation: "h", y: 1.05, yanchor: "bottom", x: 0.5, xanchor: "center", font: { size: 12 } },
   };
-  Plotly.newPlot(chart, [trace], layout, { responsive: true, displaylogo: false });
+  Plotly.newPlot(chart, traces, layout, { responsive: true, displaylogo: false });
+}
+
+// Tabulated classification results for the selected region: every DJFM winter
+// with its regime and the three driver anomalies, loaded on page load alongside
+// the scatter so the actual values are inspectable, not just plotted.
+function renderQuadrantTable() {
+  const body = document.getElementById("quadrant-table-body");
+  if (!body) return;
+  const region = quadrantState.region;
+  const heading = document.getElementById("quadrant-table-heading");
+  if (heading) heading.textContent = `Classification by winter — ${regionLabelFor(region)}`;
+  const fmt = (v, d) => (v === null || v === undefined ? "&mdash;" : `${v >= 0 ? "+" : ""}${v.toFixed(d)}`);
+  const rows = quadrantState.rows
+    .filter((r) => r.region === region)
+    .sort((a, b) => a.winter_year - b.winter_year);
+  body.innerHTML = rows.map((r) => {
+    const color = REGIME_COLORS[r.regime] || "#ccc";
+    const swatch = `<span style="display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:7px;vertical-align:-1px;background:${color}"></span>`;
+    return `<tr><td>${r.winter_year}</td><td>${swatch}${REGIME_LABELS[r.regime] || r.regime}</td>`
+      + `<td>${fmt(r.t_anom, 2)}</td><td>${fmt(r.ppt_anom, 1)}</td><td>${fmt(r.swe_anom, 1)}</td></tr>`;
+  }).join("");
 }
 
 loadManifest().then(() => {

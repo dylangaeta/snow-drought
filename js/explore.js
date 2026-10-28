@@ -5,6 +5,8 @@
 
 let timeseriesSeries = "value";
 let timeseriesStartYear = null; // null = default recent window, see populateStartYearControl
+let tsTableWindow = "DJFM"; // regional-summary-table window + year (feeds the shared table)
+let tsTableYear = null;
 
 // Default view starts at 2000, or the product's own first year if that's
 // later -- the full 1990-2026 record crams ~430 monthly points into a solid
@@ -42,6 +44,8 @@ function populateStartYearControl(entry) {
 async function renderTimeseries() {
   const chart = document.getElementById("timeseries-chart");
   const data = await fetchTimeseriesJson(`${pickerState.product}_${pickerState.response}`);
+  // Set before the no-data check, so the heading always names the region shown.
+  document.getElementById("timeseries-title").textContent = `${pickerState.product} · ${responseDisplay(data.response)} — ${regionLabelFor(pickerState.region)}`;
   const region = data.regions[pickerState.region];
   if (!region) {
     chart.innerHTML = '<p class="chart-empty">No data for this region.</p>';
@@ -52,13 +56,16 @@ async function renderTimeseries() {
   // Native-direction sigma here: +sigma = above-normal value, -sigma = below,
   // so SCA/SWE/precip depletion reads as NEGATIVE -- the intuitive direction
   // for a single-variable time series. The stress-direction sign flip
-  // (positive = drought stress) stays on the cross-variable views (Compare,
-  // Heatmap, Map), where unifying every product's stress direction aids
+  // (positive = drought stress) stays on the cross-variable Heatmap and Map
+  // views, where unifying every product's stress direction aids
   // comparison, but it misleads here (Dylan, 2026-10-02: SCA depletion was
   // showing as +sigma). Raw values are unaffected either way.
+  // Raw value + raw-unit anomaly display in the canonical unit (e.g. kg m-2 -> mm).
+  const unitFactor = canonicalUnitFactor(data.units);
+  const dispUnits = canonicalUnit(data.units);
   const fullY = isSigma
     ? region.sigma.map((v) => (v === null || v === undefined ? null : v))
-    : isAnomaly ? region.anomaly : region.value;
+    : (isAnomaly ? region.anomaly : region.value).map((v) => (v === null || v === undefined ? null : v * unitFactor));
   // Native standardized indices (SPI/SPEI/EDDI/PDSI/ForDRI/ESI) are already
   // a standardized departure -- their sigma series is identical to raw, not
   // a re-standardization (see common/canonical.py::_load_drought_index).
@@ -66,22 +73,52 @@ async function renderTimeseries() {
     ? `${data.response} (native standardized index)`
     : "Standardized anomaly (σ)";
   const yTitle = isSigma ? sigmaLabel
-    : isAnomaly ? `${data.response} anomaly (${data.units})`
-    : `${data.response} (${data.units})`;
+    : isAnomaly ? `${data.response} anomaly (${dispUnits})`
+    : `${data.response} (${dispUnits})`;
   const isDeparture = isSigma || isAnomaly;
   const startYear = Math.max(DASHBOARD_MIN_YEAR, timeseriesStartYear || DASHBOARD_MIN_YEAR);
   const dates = region.dates.filter((d) => parseInt(d.slice(0, 4), 10) >= startYear);
   const y = fullY.filter((_, i) => parseInt(region.dates[i].slice(0, 4), 10) >= startYear);
-  const traces = [{
+  const traces = [];
+  // Formal one-sigma measurement uncertainty band, where the product publishes
+  // it (GRACE mascon sigma, SMAP/SMOS retrieval error). It is in the value's own
+  // units, so it is only meaningful on the raw-value view -- not anomaly/sigma.
+  if (!isDeparture && region.uncertainty) {
+    // Guard against a fill sentinel leaking through as a real uncertainty
+    // (SMAP ships -9999 for every month): only a finite, non-negative value is
+    // a valid ±1σ, otherwise the band would balloon to ±9999 and flatten the
+    // real trace to an invisible line.
+    const unc = region.uncertainty.filter((_, i) => parseInt(region.dates[i].slice(0, 4), 10) >= startYear)
+      .map((v) => (v === null || v === undefined || !Number.isFinite(v) || v < 0 ? null : v * unitFactor));
+    const upper = y.map((v, i) => (v === null || unc[i] === null || unc[i] === undefined ? null : v + unc[i]));
+    const lower = y.map((v, i) => (v === null || unc[i] === null || unc[i] === undefined ? null : v - unc[i]));
+    if (upper.some((v) => v !== null)) {
+    traces.push({
+      x: dates, y: upper, type: "scatter", mode: "lines",
+      line: { width: 0 }, hoverinfo: "skip", showlegend: false,
+    });
+    traces.push({
+      x: dates, y: lower, type: "scatter", mode: "lines",
+      line: { width: 0 }, fill: "tonexty", fillcolor: "rgba(27,27,27,0.15)",
+      name: "±1σ measurement uncertainty", hoverinfo: "skip",
+    });
+    }
+  }
+  traces.push({
     x: dates, y, type: "scatter", mode: "lines",
     line: { color: "#1b1b1b", width: 1.4 },
-    name: yTitle,
+    name: pickerState.product,
     hovertemplate: "%{x|%Y-%m}: %{y:.2f}<extra></extra>",
-  }];
-  document.getElementById("timeseries-title").textContent = `${pickerState.product} · ${data.response} — ${regionLabelFor(pickerState.region)}`;
+  });
+  const sigmaNote = document.getElementById("timeseries-sigma-note");
+  if (sigmaNote) {
+    sigmaNote.textContent = (isSigma && !data.native_standardized && manifest.value_type_glossary)
+      ? `σ: ${manifest.value_type_glossary.sigma || ""}`
+      : "";
+  }
   const layout = {
     margin: { t: 20, r: 20, b: 45, l: 60 },
-    yaxis: { title: yTitle, zeroline: isDeparture, ...PLOTLY_AXIS_LINE },
+    yaxis: { title: yTitle, zeroline: false, ...PLOTLY_AXIS_LINE },
     xaxis: { title: "Year", showgrid: false, ...PLOTLY_AXIS_LINE, ...PLOTLY_YEARLY_MINOR_TICKS },
     font: { family: "Source Sans Pro, sans-serif", size: 13 },
     shapes: isDeparture ? [{ type: "line", x0: 0, x1: 1, xref: "paper", y0: 0, y1: 0, line: { color: "#888", width: 1 } }] : [],
@@ -89,11 +126,39 @@ async function renderTimeseries() {
   Plotly.newPlot(chart, traces, layout, { responsive: true, displaylogo: false });
 }
 
+// Regional summary table (shared design with the Map + Seasonal pages): every
+// region's raw value / anomaly / sigma / rank for the selected window + year.
+async function renderTimeseriesRegionTable() {
+  const body = document.getElementById("timeseries-region-table-body");
+  if (!body) return;
+  const data = await fetchTimeseriesJson(`${pickerState.product}_${pickerState.response}`);
+  document.getElementById("timeseries-region-table-heading").textContent =
+    `Regional values — ${pickerState.product} · ${responseDisplay(data.response)}, ${periodLabel(tsTableWindow)} ${tsTableYear}`;
+  const rawHeader = document.getElementById("timeseries-region-rawval-th");
+  if (rawHeader) rawHeader.textContent = rawValueHeaderLabel(data, tsTableWindow);
+  const note = document.getElementById("timeseries-region-table-note");
+  if (!data.aggregation) {
+    body.innerHTML = "";
+    note.textContent = "No established window-aggregation rule for this variable.";
+    return;
+  }
+  body.innerHTML = regionalSummaryRowsHtml(data, tsTableWindow, tsTableYear);
+  applyPctOfNormalHeader(body, data);
+  note.textContent = regionalSummaryNote(data);
+}
+
 function onTimeseriesSelectionChanged(entry) {
   // A new product/response has its own record span -- last product's start
   // year may not even exist in this one, so reset rather than carry it over.
   populateStartYearControl(entry);
+  // Point the regional-summary table at this product's latest available year.
+  const recordEndYear = entry.record_end ? parseInt(entry.record_end.slice(0, 4), 10) : null;
+  const { maxYear } = fullRecordYearRange();
+  tsTableYear = Math.min(recordEndYear || maxYear, maxYear);
+  const yearSel = document.getElementById("timeseries-table-year-select");
+  if (yearSel) yearSel.value = String(tsTableYear);
   renderTimeseries();
+  renderTimeseriesRegionTable();
 }
 
 function wireTimeseriesControls() {
@@ -107,6 +172,17 @@ function wireTimeseriesControls() {
   document.getElementById("timeseries-start-year-select").addEventListener("change", (event) => {
     timeseriesStartYear = event.target.value ? parseInt(event.target.value, 10) : null;
     renderTimeseries();
+  });
+  // Regional summary table window + year pickers (shared populators + table).
+  populateWindowSelect(document.getElementById("timeseries-table-window-select"), tsTableWindow);
+  populateYearSelect(document.getElementById("timeseries-table-year-select"), fullRecordYearRange().maxYear);
+  document.getElementById("timeseries-table-window-select").addEventListener("change", (event) => {
+    tsTableWindow = event.target.value;
+    renderTimeseriesRegionTable();
+  });
+  document.getElementById("timeseries-table-year-select").addEventListener("change", (event) => {
+    tsTableYear = parseInt(event.target.value, 10);
+    renderTimeseriesRegionTable();
   });
 }
 

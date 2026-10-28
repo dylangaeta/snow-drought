@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="SNOTEL snowpack dashboard for the Western US: 800+ automated snow stations, mapped by snow water equivalent percent of normal, with per-station records and the elevation dependence of snow drought.">
+<title>SNOTEL &mdash; 2025-2026 Western US Climate and Snow Drought Explorer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg stroke='%23162e51' stroke-width='2' stroke-linecap='round'%3E%3Cline x1='12' y1='2' x2='12' y2='22'/%3E%3Cline x1='4' y1='6' x2='20' y2='18'/%3E%3Cline x1='4' y1='18' x2='20' y2='6'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&family=Merriweather:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.5.0/ol.css">
+<script src="https://cdn.jsdelivr.net/npm/ol@10.5.0/dist/ol.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <h1 class="wordmark-h1"><a class="wordmark" href="home.html">Western US Climate and Snow Drought Explorer <span class="beta-tag">BETA</span>
+      <small>NOAA Global Monitoring Laboratory &middot; Cooperative Institute for Research in Environmental Sciences</small>
+      <small>Unofficial snow drought dashboard and data explorer. For educational purposes only</small>
+    </a></h1>
+    <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
+        <nav class="site-nav" id="site-nav">
+      <div class="nav-primary">
+        <a href="home.html">Home</a>
+        <a href="map.html">Map</a>
+        <a href="explore.html">Time Series</a>
+        <a href="seasonal.html">Seasonal Cycle</a>
+        <a href="compare.html">Compare</a>
+      </div>
+      <div class="nav-secondary">
+        <a href="sites.html">Sites</a>
+        <a href="snotel.html" class="active">SNOTEL</a>
+        <a href="sib4.html">SiB4</a>
+        <a href="data.html">Summary Statistics</a>
+        <a href="classification.html">Classification</a>
+        <a href="gallery.html">Figure Gallery</a>
+        <a href="about.html">About</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <section id="snotel">
+    <h2>SNOTEL Snowpack</h2>
+    <p class="finding-note">The NRCS SNOTEL network &mdash; 800+ automated
+      stations measuring mountain snow water equivalent (SWE). Each station is
+      colored by its SWE relative to the 1990&ndash;2024 median for the selected
+      day &mdash; scrub or play through the snow season, and click a station for
+      its own daily record. Percent of median is only meaningful in the snow
+      season. The current water year's data is provisional (NRCS).</p>
+
+    <div class="selector-row">
+      <label class="select-field">Metric <select id="snotel-metric-select" aria-label="Metric">
+        <option value="swe" selected>SWE (mm)</option>
+        <option value="pct_of_median">SWE % of median</option>
+        <option value="percentile">SWE percentile</option>
+      </select></label>
+      <label class="select-field">Colorbar <select id="snotel-palette-select" aria-label="Colorbar"></select></label>
+      <label class="select-field">Water year <select id="snotel-wy-select" aria-label="Water year"></select></label>
+      <label class="select-field">State <select id="snotel-state-select" aria-label="Filter stations by state"></select></label>
+      <label class="select-field">Station <select id="snotel-station-select" aria-label="Station, filterable by state and sorted by elevation"></select></label>
+    </div>
+    <div class="selector-row snotel-day-row">
+      <button type="button" id="snotel-play" class="ol-period-play" aria-label="Play through the snow season" title="Play through the snow season">&#9654;</button>
+      <div class="snotel-slider-wrap">
+        <input type="range" id="snotel-day-slider" class="snotel-day-slider" min="0" max="364" step="1" value="182" aria-label="Day of water year">
+        <div class="snotel-slider-axis" id="snotel-slider-axis" aria-hidden="true"></div>
+      </div>
+      <span id="snotel-day-label" class="snotel-day-label"></span>
+    </div>
+
+    <div id="snotel-map-wrap">
+      <div id="snotel-legend"></div>
+      <div id="snotel-map" aria-label="SNOTEL station map"></div>
+    </div>
+
+    <div class="sites-detail">
+      <h3 class="figure-title" id="snotel-detail-title">Click a station for its snowpack record</h3>
+      <p class="finding-note" id="snotel-detail-note"></p>
+      <div id="snotel-detail-chart" style="height:420px;"></div>
+      <div id="snotel-history-chart" style="height:300px;"></div>
+    </div>
+
+    <div class="sites-detail">
+      <h3 class="figure-title" id="snotel-elev-title"></h3>
+      <p class="finding-note">Snow water equivalent versus station elevation for
+        the selected day, in the metric chosen above (% of median, percentile,
+        or raw mm). Percent-of-median is a ratio that can run to several hundred
+        percent where the median snowpack is tiny, so that view is capped at
+        200% (off-scale points shown as triangles); the raw-mm and percentile
+        views are not affected by that.</p>
+      <div id="snotel-elev-chart" style="height:380px;"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <p>
+      NOAA Global Monitoring Laboratory &middot; Cooperative Institute for
+      Research in Environmental Sciences. SNOTEL data: USDA NRCS National
+      Water and Climate Center.
+    </p>
+    <p>
+      See <a href="about.html">About</a> for methodology, references, and
+      contact information.
+    </p>
+  </div>
+</footer>
+
+<script src="js/common.js"></script>
+<script src="js/ncl-colormaps.js"></script>
+<script src="js/snotel.js"></script>
+</body>
+</html>

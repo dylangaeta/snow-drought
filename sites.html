@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Individual observation stations behind the Western US snow drought dashboard: PhenoCam camera sites plus AmeriFlux and NEON flux towers. Click a station to see its own time series.">
+<title>Sites &mdash; 2025-2026 Western US Climate and Snow Drought Explorer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg stroke='%23162e51' stroke-width='2' stroke-linecap='round'%3E%3Cline x1='12' y1='2' x2='12' y2='22'/%3E%3Cline x1='4' y1='6' x2='20' y2='18'/%3E%3Cline x1='4' y1='18' x2='20' y2='6'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&family=Merriweather:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.5.0/ol.css">
+<script src="https://cdn.jsdelivr.net/npm/ol@10.5.0/dist/ol.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <h1 class="wordmark-h1"><a class="wordmark" href="home.html">Western US Climate and Snow Drought Explorer <span class="beta-tag">BETA</span>
+      <small>NOAA Global Monitoring Laboratory &middot; Cooperative Institute for Research in Environmental Sciences</small>
+      <small>Unofficial snow drought dashboard and data explorer. For educational purposes only</small>
+    </a></h1>
+    <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
+        <nav class="site-nav" id="site-nav">
+      <div class="nav-primary">
+        <a href="home.html">Home</a>
+        <a href="map.html">Map</a>
+        <a href="explore.html">Time Series</a>
+        <a href="seasonal.html">Seasonal Cycle</a>
+        <a href="compare.html">Compare</a>
+      </div>
+      <div class="nav-secondary">
+        <a href="sites.html" class="active">Sites</a>
+        <a href="snotel.html">SNOTEL</a>
+        <a href="sib4.html">SiB4</a>
+        <a href="data.html">Summary Statistics</a>
+        <a href="classification.html">Classification</a>
+        <a href="gallery.html">Figure Gallery</a>
+        <a href="about.html">About</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <section id="sites">
+    <h2>Flux Towers &amp; Observation Sites</h2>
+    <p class="finding-note">Eddy-covariance flux towers &mdash; AmeriFlux and
+      NEON &mdash; measuring carbon fluxes: gross primary productivity (GPP)
+      and/or net ecosystem exchange (NEE), including the 2025&ndash;2026 water
+      year, shown by default and
+      drawn larger. Click a tower for its own monthly record. PhenoCam
+      greenness cameras are secondary &mdash; turn them on with the toggle
+      above. Marker color is the network.</p>
+
+    <div class="selector-row" id="sites-network-toggles"></div>
+
+    <div class="selector-row">
+      <label class="select-field">State <select id="sites-state-select" aria-label="Filter sites by state"></select></label>
+      <label class="select-field">Site <select id="sites-site-select" aria-label="Site, grouped by dataset, filterable by state"></select></label>
+    </div>
+
+    <div id="sites-map-wrap">
+      <div id="sites-map" aria-label="Station map"></div>
+    </div>
+
+    <div class="sites-detail" id="sites-detail">
+      <div class="selector-row">
+        <div class="series-toggle" id="sites-series-toggle">
+          <button data-series="value" class="active">Raw units</button>
+          <button data-series="anomaly">Anomaly (raw)</button>
+        </div>
+      </div>
+      <h3 class="figure-title" id="sites-chart-title">Click a station on the map</h3>
+      <div id="sites-chart" style="height:420px;"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <p>
+      NOAA Global Monitoring Laboratory &middot; Cooperative Institute for
+      Research in Environmental Sciences.
+    </p>
+    <p>
+      See <a href="about.html">About</a> for methodology, references, and
+      contact information.
+    </p>
+  </div>
+</footer>
+
+<script src="js/common.js"></script>
+<script src="js/sites.js"></script>
+</body>
+</html>

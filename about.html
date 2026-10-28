@@ -20,17 +20,23 @@
       <small>Unofficial snow drought dashboard and data explorer. For educational purposes only</small>
     </a></h1>
     <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
-    <nav class="site-nav" id="site-nav">
-      <a href="home.html">Home</a>
-      <a href="map.html">Map</a>
-      <a href="explore.html">Time Series</a>
-      <a href="seasonal.html">Seasonal Cycle</a>
-      <a href="sib4.html">SiB4</a>
-      <a href="data.html">Summary Table</a>
-      <a href="heatmaps.html">Heatmap</a>
-      <a href="classification.html">Classification</a>
-      <a href="gallery.html">Figure Gallery</a>
-      <a href="about.html" class="active">About</a>
+        <nav class="site-nav" id="site-nav">
+      <div class="nav-primary">
+        <a href="home.html">Home</a>
+        <a href="map.html">Map</a>
+        <a href="explore.html">Time Series</a>
+        <a href="seasonal.html">Seasonal Cycle</a>
+        <a href="compare.html">Compare</a>
+      </div>
+      <div class="nav-secondary">
+        <a href="sites.html">Sites</a>
+        <a href="snotel.html">SNOTEL</a>
+        <a href="sib4.html">SiB4</a>
+        <a href="data.html">Summary Statistics</a>
+        <a href="classification.html">Classification</a>
+        <a href="gallery.html">Figure Gallery</a>
+        <a href="about.html" class="active">About</a>
+      </div>
     </nav>
   </div>
 </header>
@@ -38,14 +44,16 @@
 <main>
 
   <section id="what-this-is">
-    <h2>What this is</h2>
+    <h2>About this dashboard</h2>
     <p>
-      A public, data-forward explorer built on top of snowdrought-carbon, a
-      private NOAA Global Monitoring Laboratory / CIRES research codebase for
-      studying winter and snow drought across the Western US. This site is
-      not an official NOAA or NIDIS product, issues no forecasts, and makes
-      no causal or year-against-year claims &mdash; every chart and map is a
-      direct, descriptive read of the underlying computed values.
+      This is an open, public tool for exploring and learning from winter and
+      snow drought across the Western US &mdash; a data-exploration and
+      educational resource, first and foremost. It brings dozens of openly
+      available climate, snow, hydrology, and carbon datasets together in one
+      place and presents each as a plain, descriptive view of the numbers:
+      interactive maps, time series, seasonal cycles, and summary tables you
+      can explore, compare, and download figures from. Every chart and map is a
+      direct read of the selected variables and datasets.
     </p>
   </section>
 
@@ -54,13 +62,18 @@
     <p>
       Every anomaly on this site is the departure from that calendar
       month's own baseline average &mdash; the baseline period is the
-      later of 1990 or that product's own record start, through 2024.
-      Native standardized indices (SPI, SPEI, EDDI, PDSI, ForDRI, and ESI)
+      later of 2000 or that product's own record start, through 2024. The
+      SNOTEL station views compare each day against that station's own
+      1990&ndash;2024 median.
+      Native standardized indices (SPI, SPEI, EDDI, ForDRI, and ESI)
       are already their own standardized departure statistic at the source
-      and are shown directly rather than recomputed.
+      and are shown directly rather than recomputed. Index-scale measures
+      (PDSI, VegDRI, USDM) are shown on their own native scale and are
+      re-standardized against their own baseline only for the cross-product
+      &sigma; comparison views.
     </p>
     <p>
-      On the <a href="data.html">summary table</a>, five ways to display the
+      On the <a href="data.html">Summary Statistics</a> page, several ways to display the
       same underlying anomaly are available:
     </p>
     <ul id="value-type-list"></ul>
@@ -69,31 +82,24 @@
   <section id="cross-product-methodology">
     <h2>Cross-product views</h2>
     <p>
-      Three tools on this site overlay or aggregate more than one product at
-      once. All three are computed live in the browser from the same
+      Three tools on this site place more than one product in a single view.
+      All three are computed live in the browser from the same
       per-product JSON everything else on this site reads &mdash; nothing is
       a static image, and no product is ever averaged or blended into
       another.
     </p>
     <ul>
       <li><strong>Compare</strong>
-        (<a href="compare.html">Compare</a>): every product
-        that shares a physical theme (snow, soil moisture, vegetation, ...)
-        overlaid on one standardized-anomaly (&sigma;) axis, drawn solid for
-        an observation and dashed for a model or data-driven product; check a
-        variable to add it to the chart. Vegetation responses are shown only
-        during each product's own active growing season &mdash; a
-        dormant-season baseline near zero would otherwise make a tiny
-        absolute anomaly explode when standardized. Every series is
-        sign-flipped by its own stress direction before overlay (the same
-        convention the Summary Table, Heatmap, and Map use), so positive
-        always reads as the stress direction regardless of a variable's raw
-        sign convention.</li>
+        (<a href="compare.html">Compare</a>): any two variables on one shared
+        time axis &mdash; in raw units each reads on its own y-axis (A left, B
+        right), or switch to &sigma; to standardize both onto one axis. The
+        &sigma; here is native-direction (each variable against its own
+        baseline), not the stress-direction flip the Heatmap and Map use.</li>
       <li><strong>Heatmap</strong> (<a href="heatmaps.html">Heatmap</a>):
         every product's standardized anomaly, one row per product, for any
         month or season window back to 1990, as one color matrix per
-        category &mdash; gold always means stress and teal always means
-        relief, regardless of a variable's own raw sign convention.</li>
+        category &mdash; brown always means more stress and teal always means
+        less stress, regardless of a variable's own raw sign convention.</li>
       <li><strong>Dierauer classification</strong>
         (<a href="classification.html">Classification</a>): each DJFM
         winter placed in anomaly space across precipitation, temperature,
@@ -101,26 +107,6 @@
         / no snow drought following Dierauer, Allen &amp; Whitfield (2019,
         <em>Water Resources Research</em>).</li>
     </ul>
-  </section>
-
-  <section id="usdm-classification">
-    <h2>U.S. Drought Monitor categories</h2>
-    <p>USDM values on this site are the drought classification (0&ndash;4,
-      corresponding to D0&ndash;D4) blended with the underlying percentile.
-      Real-world impact descriptions below are quoted directly from
-      <a href="https://www.drought.gov/explaining-drought-category-maps" target="_blank" rel="noopener">drought.gov's own category explainer</a>.</p>
-    <div style="overflow-x:auto;">
-      <table class="headline-table">
-        <thead><tr><th>Category</th><th>Percentile</th><th>Typical impacts (drought.gov)</th></tr></thead>
-        <tbody>
-          <tr><td>D0 &mdash; Abnormally Dry</td><td>20.01&ndash;30.00</td><td>Going into drought: &ldquo;short-term dryness slowing planting, growth of crops or pastures.&rdquo; Coming out of drought: &ldquo;some lingering water deficits&rdquo; and &ldquo;pastures or crops not fully recovered.&rdquo;</td></tr>
-          <tr><td>D1 &mdash; Moderate Drought</td><td>10.01&ndash;20.00</td><td>&ldquo;Some damage to crops, pastures,&rdquo; &ldquo;streams, reservoirs, or wells low, some water shortages developing or imminent,&rdquo; &ldquo;voluntary water-use restrictions requested.&rdquo;</td></tr>
-          <tr><td>D2 &mdash; Severe Drought</td><td>5.01&ndash;10.00</td><td>&ldquo;Crop or pasture losses likely,&rdquo; &ldquo;water shortages common,&rdquo; &ldquo;water restrictions imposed.&rdquo;</td></tr>
-          <tr><td>D3 &mdash; Extreme Drought</td><td>2.01&ndash;5.00</td><td>&ldquo;Major crop/pasture losses&rdquo; and &ldquo;widespread water shortages or restrictions.&rdquo;</td></tr>
-          <tr><td>D4 &mdash; Exceptional Drought</td><td>0.00&ndash;2.00</td><td>&ldquo;Exceptional and widespread crop/pasture losses&rdquo; and &ldquo;shortages of water in reservoirs, streams, and wells creating water emergencies.&rdquo;</td></tr>
-        </tbody>
-      </table>
-    </div>
   </section>
 
   <section id="observational-coverage">
@@ -147,37 +133,70 @@
           <tr><td>PDSI</td><td>Palmer Drought Severity Index, computed on the gridMET grid</td><td><a href="https://www.drought.gov/data-maps-tools/us-gridded-palmer-drought-severity-index-pdsi-gridmet" target="_blank" rel="noopener">University of Idaho (gridMET / Climatology Lab)</a></td></tr>
           <tr><td>ForDRI</td><td>Forest Drought Response Index &mdash; composite drought index for forested land</td><td><a href="https://fordri.unl.edu" target="_blank" rel="noopener">National Drought Mitigation Center, University of Nebraska-Lincoln / USDA Forest Service</a></td></tr>
           <tr><td>ESI</td><td>Evaporative Stress Index &mdash; MODIS actual/reference-ET ratio anomaly (plant water stress)</td><td><a href="https://gis1.servirglobal.net/data/esi" target="_blank" rel="noopener">USDA / SERVIR</a></td></tr>
+          <tr><td>VegDRI</td><td>Vegetation Drought Response Index &mdash; a satellite-greenness, climate, and biophysical blend of vegetation drought stress</td><td><a href="https://vegdri.unl.edu/" target="_blank" rel="noopener">National Drought Mitigation Center, University of Nebraska-Lincoln / USGS EROS</a></td></tr>
           <tr><td>USDM</td><td>U.S. Drought Monitor &mdash; weekly composite drought classification (D0&ndash;D4) and severity index</td><td><a href="https://droughtmonitor.unl.edu/" target="_blank" rel="noopener">National Drought Mitigation Center, University of Nebraska-Lincoln</a></td></tr>
           <tr><td>ERA5-Land</td><td>Reanalysis land-surface SWE, soil moisture, ET, precipitation, temperature, runoff</td><td><a href="https://cds.climate.copernicus.eu/" target="_blank" rel="noopener">ECMWF / Copernicus Climate Data Store</a></td></tr>
+          <tr><td>GLEAM</td><td>Global Land Evaporation Amsterdam Model (v4.3a) &mdash; satellite-based land evaporation components (actual and potential evaporation, transpiration, interception loss, bare-soil/snow/open-water evaporation), evaporative stress, and surface/root-zone soil moisture</td><td><a href="https://www.gleam.eu/" target="_blank" rel="noopener">GLEAM / Hydro-Climate Extremes Lab, Ghent University (Miralles et al.)</a></td></tr>
           <tr><td>UA-SWE-Monthly</td><td>4-km daily gridded snow water equivalent, aggregated to monthly</td><td><a href="https://climate.arizona.edu/data/UA_SWE/DailyData_4km" target="_blank" rel="noopener">University of Arizona</a></td></tr>
-          <tr><td>MODIS-TerraAqua</td><td>Daily 0.05&deg; snow-cover fraction (MOD10C1/MYD10C1)</td><td><a href="https://nsidc.org/data/mod10c1" target="_blank" rel="noopener">NASA / NSIDC</a></td></tr>
-          <tr><td>VIIRS</td><td>Satellite (VNP10C1) daily snow-covered-area product</td><td><a href="https://nsidc.org/data/vnp10c1" target="_blank" rel="noopener">NASA / NSIDC</a></td></tr>
-          <tr><td>IMS-Snow</td><td>Interactive Multisensor Snow and Ice Mapping System, daily snow-cover classification (NSIDC G02156)</td><td><a href="https://nsidc.org/data/g02156" target="_blank" rel="noopener">NOAA / NSIDC</a></td></tr>
+          <tr><td>MODIS-Terra / MODIS-Aqua (snow cover)</td><td>Daily 0.05&deg; snow-cover fraction from the Terra (MOD10C1) and Aqua (MYD10C1) sensors</td><td><a href="https://nsidc.org/data/mod10c1" target="_blank" rel="noopener">NASA / NSIDC</a></td></tr>
+          <tr><td>VIIRS (snow cover)</td><td>Satellite (VNP10C1) daily snow-covered-area product</td><td><a href="https://nsidc.org/data/vnp10c1" target="_blank" rel="noopener">NASA / NSIDC</a></td></tr>
+          <tr><td>NSIDC-IMS</td><td>Interactive Multisensor Snow and Ice Mapping System, daily snow-cover classification (NSIDC G02156)</td><td><a href="https://nsidc.org/data/g02156" target="_blank" rel="noopener">NOAA / NSIDC</a></td></tr>
+          <tr><td>SNODAS</td><td>Snow Data Assimilation System &mdash; modeled daily snow water equivalent and snow depth (NOHRSC, NSIDC G02158)</td><td><a href="https://nsidc.org/data/g02158" target="_blank" rel="noopener">NOAA NOHRSC / NSIDC</a></td></tr>
           <tr><td>NLDAS-Mosaic</td><td>NLDAS-2 Mosaic land-surface model output (ET, runoff, soil moisture)</td><td><a href="https://ldas.gsfc.nasa.gov/nldas" target="_blank" rel="noopener">NASA GES DISC</a></td></tr>
           <tr><td>NLDAS-Noah</td><td>NLDAS-2 Noah land-surface model output (ET, runoff, soil moisture)</td><td><a href="https://ldas.gsfc.nasa.gov/nldas" target="_blank" rel="noopener">NASA GES DISC</a></td></tr>
           <tr><td>NLDAS-VIC</td><td>NLDAS-2 VIC land-surface model output (ET, runoff, soil moisture)</td><td><a href="https://ldas.gsfc.nasa.gov/nldas" target="_blank" rel="noopener">NASA GES DISC</a></td></tr>
           <tr><td>PRISM</td><td>Monthly 4-km precipitation and vapor-pressure-deficit grids</td><td><a href="https://prism.oregonstate.edu/" target="_blank" rel="noopener">PRISM Climate Group, Oregon State University</a></td></tr>
-          <tr><td>MODIS-Terra</td><td>Leaf area index (MOD15A2H.061), evapotranspiration (MOD16A2GF.061), gross primary productivity (MOD17A2HGF.061), and NDVI/EVI vegetation indices (MOD13C1.061)</td><td><a href="https://appeears.earthdatacloud.nasa.gov/" target="_blank" rel="noopener">NASA LP DAAC (AppEEARS)</a></td></tr>
+          <tr><td>MODIS-Terra</td><td>Leaf area index (MOD15A2H.061), evapotranspiration (MOD16A2GF.061), gross primary productivity (MOD17A2HGF.061), NDVI/EVI/LSWI vegetation indices (MOD13C1.061), and day/night land-surface temperature (MOD11C3.061)</td><td><a href="https://appeears.earthdatacloud.nasa.gov/" target="_blank" rel="noopener">NASA LP DAAC (AppEEARS)</a></td></tr>
+          <tr><td>MODIS-Aqua</td><td>Aqua-sensor counterparts: leaf area index, evapotranspiration, gross primary productivity, NDVI/EVI/LSWI vegetation indices, and day/night land-surface temperature (MYD-series, e.g. MYD13C1.061, MYD11C3.061)</td><td><a href="https://appeears.earthdatacloud.nasa.gov/" target="_blank" rel="noopener">NASA LP DAAC (AppEEARS)</a></td></tr>
+          <tr><td>VIIRS (vegetation)</td><td>VIIRS 0.05&deg; NDVI, EVI, and LSWI vegetation indices (VNP13C1)</td><td><a href="https://appeears.earthdatacloud.nasa.gov/" target="_blank" rel="noopener">NASA LP DAAC (AppEEARS)</a></td></tr>
+          <tr><td>VIIRS (land-surface temperature)</td><td>VIIRS day/night land-surface temperature (VNP21C2)</td><td><a href="https://appeears.earthdatacloud.nasa.gov/" target="_blank" rel="noopener">NASA LP DAAC (AppEEARS)</a></td></tr>
           <tr><td>GPCP</td><td>Global Precipitation Climatology Project monthly precipitation, 2.5&deg;</td><td><a href="https://www.ncei.noaa.gov/products/global-precipitation-climatology-project" target="_blank" rel="noopener">NOAA NCEI / University of Maryland</a></td></tr>
           <tr><td>GRACE-JPL-L3</td><td>Mascon terrestrial water-storage anomaly (TELLUS_GRAC-GRFO_MASCON_CRI_GRID_RL06.3_V4, DOI 10.5067/TEMSC-3JC634)</td><td><a href="https://podaac.jpl.nasa.gov/dataset/TELLUS_GRAC-GRFO_MASCON_CRI_GRID_RL06.3_V4" target="_blank" rel="noopener">NASA JPL / PO.DAAC</a></td></tr>
           <tr><td>GRACE-L4</td><td>Catchment land-surface data-assimilation model groundwater/soil-moisture storage (GRACEDADM_CLSM025GL_7D)</td><td><a href="https://earth.gsfc.nasa.gov/hydro/data/groundwater-and-soil-moisture-conditions-grace-data-assimilation" target="_blank" rel="noopener">NASA Goddard Space Flight Center / GES DISC</a></td></tr>
-          <tr><td>SMOS</td><td>L2 soil moisture (MIR_SMUDP2)</td><td><a href="https://earth.esa.int/eogateway/missions/smos" target="_blank" rel="noopener">European Space Agency</a></td></tr>
-          <tr><td>SiB4</td><td>Process-based terrestrial biosphere model (GPP/RECO/NEE by plant functional type)</td><td>Colorado State University (Dr. Aleya Kaushik)</td></tr>
+          <tr><td>SMOS</td><td>L2 soil moisture and vegetation optical depth (MIR_SMUDP2)</td><td><a href="https://earth.esa.int/eogateway/missions/smos" target="_blank" rel="noopener">European Space Agency</a></td></tr>
+          <tr><td>SMAP</td><td>L3 radiometer surface soil moisture (SPL3SMP)</td><td><a href="https://nsidc.org/data/spl3smp" target="_blank" rel="noopener">NASA / NSIDC</a></td></tr>
+          <tr><td>SiB4</td><td>Process-based terrestrial biosphere model (GPP, respiration, NEE, plus ET, LAI, SIF, soil water, and VPD by plant functional type)</td><td>Colorado State University (Dr. Aleya Kaushik)</td></tr>
           <tr><td>OCO-2</td><td>Level-2 Lite solar-induced fluorescence (OCO2_L2_Lite_SIF)</td><td><a href="https://disc.gsfc.nasa.gov/" target="_blank" rel="noopener">NASA GES DISC</a></td></tr>
-          <tr><td>TROPOSIF</td><td>TROPOMI solar-induced fluorescence (L2B_SIF___)</td><td><a href="https://s5p-pal.com/" target="_blank" rel="noopener">ESA Sentinel-5P S5P-PAL</a></td></tr>
+          <tr><td>TROPOMI</td><td>TROPOMI solar-induced fluorescence (TROPOSIF L2B_SIF___)</td><td><a href="https://s5p-pal.com/" target="_blank" rel="noopener">ESA Sentinel-5P S5P-PAL</a></td></tr>
           <tr><td>PhenoCam</td><td>Camera network green chromatic coordinate (canopy greenness)</td><td><a href="https://phenocam.nau.edu/" target="_blank" rel="noopener">PhenoCam Network, Northern Arizona University</a></td></tr>
           <tr><td>NEON</td><td>Bundled eddy-covariance flux product (half-hourly net ecosystem exchange)</td><td><a href="https://data.neonscience.org/data-products/DP4.00200.001" target="_blank" rel="noopener">National Ecological Observatory Network</a></td></tr>
           <tr><td>CAMS</td><td>Inversion-optimized land-atmosphere CO2 exchange (cams-global-greenhouse-gas-inversion)</td><td><a href="https://ads.atmosphere.copernicus.eu/" target="_blank" rel="noopener">Copernicus Atmosphere Monitoring Service</a></td></tr>
           <tr><td>CarbonTracker</td><td>Atmospheric-inversion-optimized terrestrial CO2 flux (NEE)</td><td><a href="https://gml.noaa.gov/ccgg/carbontracker/" target="_blank" rel="noopener">NOAA Global Monitoring Laboratory</a></td></tr>
           <tr><td>FluxSat</td><td>Satellite-driven (MODIS-based) gross primary productivity</td><td><a href="https://www.earthdata.nasa.gov/data/catalog/ornl-cloud-fluxsat-gpp-fpar-1835-2" target="_blank" rel="noopener">NASA ORNL DAAC</a></td></tr>
-          <tr><td>GOSIF</td><td>OCO-2-based solar-induced fluorescence, a photosynthesis proxy</td><td><a href="https://data.globalecology.unh.edu/data/GOSIF_v2/Monthly/" target="_blank" rel="noopener">University of New Hampshire</a></td></tr>
-          <tr><td>GOSIF-GPP</td><td>Gross primary productivity derived from GOSIF</td><td><a href="https://data.globalecology.unh.edu/data/GOSIF-GPP_v3/Monthly/Mean/" target="_blank" rel="noopener">University of New Hampshire</a></td></tr>
+          <tr><td>GOSIF</td><td>OCO-2-based solar-induced fluorescence (SIF), a photosynthesis proxy, and gross primary productivity (GPP) derived from it</td><td><a href="https://data.globalecology.unh.edu/data/GOSIF_v2/Monthly/" target="_blank" rel="noopener">University of New Hampshire</a> (<a href="https://data.globalecology.unh.edu/data/GOSIF-GPP_v3/Monthly/Mean/" target="_blank" rel="noopener">GPP</a>)</td></tr>
           <tr><td>MiCASA</td><td>Modular integrated CASA model &mdash; monthly terrestrial NEE/NPP</td><td><a href="https://earth.gov/ghgcenter/data-catalog/micasa-carbonflux-grid-v1" target="_blank" rel="noopener">NASA Goddard Space Flight Center / U.S. Greenhouse Gas Center</a></td></tr>
           <tr><td>GFED5</td><td>Burned area and fire carbon emissions, 0.25&deg;, v5.1</td><td><a href="https://www.globalfiredata.org/data.html" target="_blank" rel="noopener">Global Fire Emissions Database consortium</a></td></tr>
           <tr><td>gridMET-Fire</td><td>Fire-weather indices: energy release component, burning index, dead-fuel moisture</td><td><a href="https://www.northwestknowledge.net/metdata/data" target="_blank" rel="noopener">University of Idaho (gridMET / Climatology Lab)</a></td></tr>
+          <tr><td>SNOTEL</td><td>Automated mountain snowpack stations &mdash; daily snow water equivalent (SWE); station metadata via the AWDB REST API</td><td><a href="https://www.nrcs.usda.gov/wps/portal/wcc/home/" target="_blank" rel="noopener">USDA NRCS National Water and Climate Center</a></td></tr>
+          <tr><td>AmeriFlux</td><td>Eddy-covariance flux-tower GPP and NEE (BASE data product)</td><td><a href="https://ameriflux.lbl.gov/" target="_blank" rel="noopener">AmeriFlux Network / Lawrence Berkeley National Laboratory</a></td></tr>
         </tbody>
       </table>
+
+      <h3>Colors, maps &amp; software libraries</h3>
+      <ul>
+        <li><strong>Color tables:</strong> NCAR Command Language (NCL) color tables, sampled via the open-source <a href="https://github.com/hhuangwx/cmaps" target="_blank" rel="noopener">cmaps</a> package &mdash; see the <a href="https://www.ncl.ucar.edu/Document/Graphics/color_table_gallery.shtml" target="_blank" rel="noopener">NCL Color Table Gallery</a> (UCAR/NCAR).</li>
+        <li><strong>Basemap:</strong> interactive map tiles &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors, under the Open Database License (ODbL).</li>
+        <li><strong>Interactive maps &amp; charts:</strong> <a href="https://openlayers.org/" target="_blank" rel="noopener">OpenLayers</a> with <a href="https://geotiffjs.github.io/" target="_blank" rel="noopener">geotiff.js</a> for Cloud Optimized GeoTIFF rendering; <a href="https://plotly.com/javascript/" target="_blank" rel="noopener">Plotly.js</a> for time-series and scatter charts.</li>
+        <li><strong>Geospatial processing:</strong> <a href="https://geopandas.org/" target="_blank" rel="noopener">GeoPandas</a>, <a href="https://shapely.readthedocs.io/" target="_blank" rel="noopener">Shapely</a>, <a href="https://xarray.dev/" target="_blank" rel="noopener">xarray</a>, and <a href="https://rasterio.readthedocs.io/" target="_blank" rel="noopener">rasterio</a>. State boundaries from <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a>; HUC basins from the <a href="https://www.usgs.gov/national-hydrography/watershed-boundary-dataset" target="_blank" rel="noopener">USGS Watershed Boundary Dataset</a>.</li>
+      </ul>
     </div>
+  </section>
+
+  <section id="disclaimers">
+    <h2>Disclaimers</h2>
+    <ul>
+      <li>This site is <strong>not an official NOAA, NIDIS, or U.S. Drought
+        Monitor product</strong>. It issues no forecasts and makes no causal or
+        year-against-year claims &mdash; every chart and map is a direct,
+        descriptive read of the selected variables and datasets.</li>
+      <li>For data access, authoritative values, complete metadata, quality
+        flags, version history, and terms of use, always defer to each
+        dataset's <strong>original provider</strong> (linked in the Datasets
+        &amp; references table above). The versions shown here are reprocessed
+        for visualization and may lag, be cropped to the Western US, differ in
+        spatial resolution, or apply different pre-processing and QA-flag
+        handling of satellite layers than the source.</li>
+    </ul>
   </section>
 
 </main>
@@ -185,9 +204,8 @@
 <footer class="site-footer">
   <div class="footer-inner">
     <p>
-      Source: snowdrought-carbon (private research codebase, NOAA
-      Global Monitoring Laboratory &middot; Cooperative Institute for
-      Research in Environmental Sciences).
+      NOAA Global Monitoring Laboratory &middot; Cooperative Institute for
+      Research in Environmental Sciences.
     </p>
     <p id="contact">
       Contact &mdash;

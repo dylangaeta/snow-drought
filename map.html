@@ -26,17 +26,23 @@
       <small>Unofficial snow drought dashboard and data explorer. For educational purposes only</small>
     </a></h1>
     <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
-    <nav class="site-nav" id="site-nav">
-      <a href="home.html">Home</a>
-      <a href="map.html" class="active">Map</a>
-      <a href="explore.html">Time Series</a>
-      <a href="seasonal.html">Seasonal Cycle</a>
-      <a href="sib4.html">SiB4</a>
-      <a href="data.html">Summary Table</a>
-      <a href="heatmaps.html">Heatmap</a>
-      <a href="classification.html">Classification</a>
-      <a href="gallery.html">Figure Gallery</a>
-      <a href="about.html">About</a>
+        <nav class="site-nav" id="site-nav">
+      <div class="nav-primary">
+        <a href="home.html">Home</a>
+        <a href="map.html" class="active">Map</a>
+        <a href="explore.html">Time Series</a>
+        <a href="seasonal.html">Seasonal Cycle</a>
+        <a href="compare.html">Compare</a>
+      </div>
+      <div class="nav-secondary">
+        <a href="sites.html">Sites</a>
+        <a href="snotel.html">SNOTEL</a>
+        <a href="sib4.html">SiB4</a>
+        <a href="data.html">Summary Statistics</a>
+        <a href="classification.html">Classification</a>
+        <a href="gallery.html">Figure Gallery</a>
+        <a href="about.html">About</a>
+      </div>
     </nav>
   </div>
 </header>
@@ -45,64 +51,88 @@
 
   <section id="interactive-maps">
     <h2>Interactive maps</h2>
-    <p class="finding-note">Cloud Optimized GeoTIFF maps. Click for pixel value. Download GeoTIFF or copy view link. Colors/bins match the pre-rendered static maps (server-side).</p>
+    <p class="finding-note">Click for a pixel value, download a screenshot, or copy a link to this view. The interactive view uses the same server-side color palettes as the static maps, rendered as a continuous ramp.</p>
 
-    <div class="product-search-wrap">
-      <input type="search" id="product-search" placeholder="Search products (e.g. &quot;snow water equivalent&quot;, &quot;PRISM&quot;)..." aria-label="Search products">
-      <div id="product-search-results" class="search-results"></div>
-    </div>
-
-    <div class="explorer-layout">
-      <nav class="category-tabs" id="category-tabs" aria-label="Dataset category"></nav>
-
-      <div>
-        <div class="map-sticky">
-        <div class="selector-row">
+    <div class="map-layout">
+      <aside class="map-sidebar">
+      <div class="map-panel">
+        <div class="product-search-wrap">
+          <input type="search" id="product-search" placeholder="Search products (e.g. &quot;snow water equivalent&quot;, &quot;PRISM&quot;)..." aria-label="Search products">
+          <div id="product-search-results" class="search-results"></div>
+        </div>
+        <div class="picker-pivot" id="picker-pivot"></div>
+        <div class="map-panel-row">
           <label class="select-field">Dataset <select id="product-select" aria-label="Product"></select></label>
           <label class="select-field">Variable <select id="response-select" aria-label="Variable"></select></label>
         </div>
-        <div class="map-controls">
+        <div class="series-toggle" id="ol-mode-toggle">
+          <button type="button" data-mode="climatology" class="active">Climatology</button>
+          <button type="button" data-mode="raw">Raw units</button>
+          <button type="button" data-mode="anomaly">Anomaly</button>
+        </div>
+      </div>
+
+      <div class="map-panel map-panel-display" id="ol-display-panel">
+        <div class="map-panel-row">
+          <label class="select-field">Color theme
+            <div class="cm-dd" id="ol-colormap-dd">
+              <button type="button" class="cm-trigger" id="ol-colormap-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Color theme">
+                <span class="cm-swatch" id="ol-cm-current-swatch"></span>
+                <span class="cm-trigger-name" id="ol-cm-current-name">&mdash;</span>
+                <span class="cm-caret" aria-hidden="true">&#9662;</span>
+              </button>
+              <div class="cm-panel" id="ol-colormap-panel" role="listbox" hidden></div>
+            </div>
+          </label>
+          <button type="button" id="ol-invert-btn" class="map-toggle-btn" aria-pressed="false">Invert colors</button>
+          <label class="boundary-toggle"><input type="checkbox" id="ol-boundary-toggle" checked> State boundaries</label>
+          <label class="boundary-toggle"><input type="checkbox" id="ol-huc-toggle"> HUC2 basins</label>
+        </div>
+      </div>
+
+      <div class="ol-actions">
+        <button id="ol-reset-view-btn" type="button">Reset view</button>
+        <button id="ol-fullscreen-btn" type="button">Full screen</button>
+        <button id="ol-screenshot-btn" type="button">Download screenshot</button>
+        <button id="ol-copy-view-btn" type="button">Copy link to this view</button>
+      </div>
+      </aside>
+
+      <div class="map-stage">
+        <h3 id="ol-map-title" class="figure-title"></h3>
+        <div class="product-meta" id="product-meta"></div>
+        <div class="map-panel map-panel-time" id="ol-time-panel">
           <div class="ol-period-slider" id="ol-period-slider">
             <button type="button" id="ol-period-play" class="ol-period-play" aria-label="Play through the months" title="Play through the months">&#9654;</button>
             <div class="ol-period-track" id="ol-period-track" role="group" aria-label="Month or season"></div>
           </div>
-          <div class="series-toggle" id="ol-mode-toggle">
-            <button type="button" data-mode="climatology" class="active">Climatology</button>
-            <button type="button" data-mode="raw">Raw units</button>
-            <button type="button" data-mode="anomaly">Anomaly</button>
-          </div>
           <div class="year-control-wrap" id="ol-year-control-wrap" style="display:none;">
             <button type="button" id="ol-year-prev-btn" aria-label="Previous year">&larr;</button>
+            <div class="ol-year-slider-wrap">
+              <input type="range" id="ol-year-slider" class="ol-year-slider" aria-label="Scrub year" min="0" max="0" step="1" value="0">
+              <div class="ol-year-axis" id="ol-year-axis" aria-hidden="true"></div>
+            </div>
             <select id="ol-year-select" aria-label="Year"></select>
             <button type="button" id="ol-year-next-btn" aria-label="Next year">&rarr;</button>
           </div>
-          <label class="boundary-toggle"><input type="checkbox" id="ol-boundary-toggle" checked> State boundaries</label>
         </div>
-        </div>
-        <h3 id="ol-map-title" class="figure-title"></h3>
-        <div class="product-meta" id="product-meta"></div>
         <div id="ol-map-empty" class="map-empty" style="display:none;">No interactive map available for this selection.</div>
         <div id="ol-map-wrap">
           <div id="ol-legend"></div>
-          <div id="ol-map" aria-label="Interactive map"></div>
+          <div id="ol-map" aria-label="Interactive map" tabindex="0"></div>
         </div>
         <div id="ol-query-readout">Click the map to read a pixel value.</div>
-        <div class="ol-actions">
-          <button id="ol-reset-view-btn" type="button">Reset view</button>
-          <button id="ol-fullscreen-btn" type="button">Full screen</button>
-          <button id="ol-screenshot-btn" type="button">Download screenshot</button>
-          <a id="ol-geotiff-link" download>Download GeoTIFF</a>
-          <button id="ol-copy-url-btn" type="button">Copy COG URL</button>
-          <button id="ol-copy-view-btn" type="button">Copy link to this view</button>
-        </div>
-        <div id="ol-region-table-wrap" class="region-table-card">
-          <h3 id="ol-region-table-heading">Regional values</h3>
-          <p id="ol-region-table-note" class="value-glossary"></p>
-          <table class="headline-table" id="ol-region-table">
-            <thead><tr><th>Region</th><th>Raw value</th><th>Anomaly (σ)</th><th>Rank on record</th></tr></thead>
-            <tbody id="ol-region-table-body"></tbody>
-          </table>
-        </div>
+      </div>
+    </div>
+
+    <div id="ol-region-table-wrap" class="region-table-card">
+      <h3 id="ol-region-table-heading">Regional values</h3>
+      <p id="ol-region-table-note" class="value-glossary"></p>
+      <div style="overflow-x:auto;">
+      <table class="headline-table region-values-table" id="ol-region-table">
+        <thead><tr><th>Region</th><th id="ol-region-rawval-th">Raw value</th><th>Baseline mean</th><th class="pct-normal-th">% of mean</th><th>Anomaly (raw)</th><th>Anomaly (σ)</th><th>Rank on record</th></tr></thead>
+        <tbody id="ol-region-table-body"></tbody>
+      </table>
       </div>
     </div>
   </section>
@@ -112,9 +142,8 @@
 <footer class="site-footer">
   <div class="footer-inner">
     <p>
-      Source: snowdrought-carbon (private research codebase, NOAA
-      Global Monitoring Laboratory &middot; Cooperative Institute for
-      Research in Environmental Sciences).
+      NOAA Global Monitoring Laboratory &middot; Cooperative Institute for
+      Research in Environmental Sciences.
     </p>
     <p>
       See <a href="about.html">About</a> for methodology, references, and
@@ -124,6 +153,8 @@
 </footer>
 
 <script src="js/common.js"></script>
+<script src="js/ncl-colormaps.js"></script>
+<script src="js/product-picker.js"></script>
 <script src="js/map-viewer.js"></script>
 </body>
 </html>

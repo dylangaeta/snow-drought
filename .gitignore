@@ -11,6 +11,10 @@
 /figures/seasonal/
 
 .DS_Store
+# macOS custom-folder-icon resource-fork files (literally named "Icon" + a
+# trailing carriage return); Finder creates them for any folder given a custom
+# icon, and they otherwise litter git status repo-wide.
+Icon?
 
 # Live Cloudflare API token + R2 access/secret keys for sync_cogs_to_r2.sh --
 # never commit this.
